@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flywheel Music Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM (UMD Production) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for in-browser JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      body {
+        background-color: #000;
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        overflow: hidden; /* Prevent native scrollbars */
+        overscroll-behavior: none; /* Prevent pull-to-refresh on mobile */
+      }
+      /* Custom utility for the glow effect spread */
+      .glow-spread {
+        box-shadow: 0 0 40px 10px rgba(147, 51, 234, 0.3);
+      }
+    </style>
+  <link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useRef, useEffect, useCallback } = React;
+
+      // ==========================================
+      // Component: SheetMusic
+      // ==========================================
+
+      const SheetMusicSvg = () => (
+        <svg viewBox="0 0 800 300" className="w-[800px] h-[300px] flex-shrink-0 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+          {/* Staff Lines - Top */}
+          <g opacity="0.8">
+            <line x1="50" y1="50" x2="750" y2="50" />
+            <line x1="50" y1="70" x2="750" y2="70" />
+            <line x1="50" y1="90" x2="750" y2="90" />
+            <line x1="50" y1="110" x2="750" y2="110" />
+            <line x1="50" y1="130" x2="750" y2="130" />
+            
+            {/* Clef (Stylized Treble) */}
+            <path d="M80 140 C 60 140, 60 100, 80 90 C 100 80, 100 60, 90 50 C 80 40, 70 60, 70 90 L 70 150 C 70 170, 90 170, 100 160" strokeWidth="3" />
+            
+            {/* Key Signature (Flats) */}
+            <text x="110" y="100" fontSize="30" fill="currentColor" stroke="none">♭</text>
+            <text x="125" y="70" fontSize="30" fill="currentColor" stroke="none">♭</text>
+            <text x="140" y="110" fontSize="30" fill="currentColor" stroke="none">♭</text>
+            <text x="155" y="80" fontSize="30" fill="currentColor" stroke="none">♭</text>
+            <text x="170" y="120" fontSize="30" fill="currentColor" stroke="none">♭</text>
+
+            {/* Time Signature 9/8 */}
+            <text x="200" y="85" fontSize="30" fontWeight="bold" fill="currentColor" stroke="none">9</text>
+            <text x="200" y="125" fontSize="30" fontWeight="bold" fill="currentColor" stroke="none">8</text>
+          </g>
+
+          {/* Staff Lines - Bottom */}
+          <g opacity="0.8" transform="translate(0, 140)">
+            <line x1="50" y1="50" x2="750" y2="50" />
+            <line x1="50" y1="70" x2="750" y2="70" />
+            <line x1="50" y1="90" x2="750" y2="90" />
+            <line x1="50" y1="110" x2="750" y2="110" />
+            <line x1="50" y1="130" x2="750" y2="130" />
+            {/* Clef (Stylized Bass) */}
+            <path d="M80 70 C 90 60, 100 70, 90 80 C 70 100, 70 110, 90 120" strokeWidth="3" />
+            <circle cx="105" cy="70" r="3" fill="currentColor" stroke="none" />
+            <circle cx="105" cy="85" r="3" fill="currentColor" stroke="none" />
+            
+              {/* Key Signature (Flats) - Bass */}
+            <text x="110" y="90" fontSize="30" fill="currentColor" stroke="none">♭</text>
+            <text x="125" y="60" fontSize="30" fill="currentColor" stroke="none">♭</text>
+            <text x="140" y="100" fontSize="30" fill="currentColor" stroke="none">♭</text>
+            <text x="155" y="70" fontSize="30" fill="currentColor" stroke="none">♭</text>
+            <text x="170" y="110" fontSize="30" fill="currentColor" stroke="none">♭</text>
+          </g>
+
+          {/* Notes Mockup (Clair de Lune-ish arpeggios) */}
+          <g fill="currentColor" stroke="currentColor">
+            {/* Measure 1 */}
+            <line x1="300" y1="50" x2="300" y2="280" strokeWidth="1" opacity="0.5"/>
+            
+            {/* Treble Notes */}
+            <ellipse cx="240" cy="110" rx="8" ry="6" fill="currentColor" />
+            <line x1="248" y1="110" x2="248" y2="70" strokeWidth="2" />
+            
+            <ellipse cx="270" cy="100" rx="8" ry="6" fill="currentColor" />
+            <line x1="278" y1="100" x2="278" y2="60" strokeWidth="2" />
+            <line x1="248" y1="70" x2="278" y2="60" strokeWidth="4" /> {/* Beam */}
+
+            {/* Bass Notes - Arpeggios */}
+            <ellipse cx="240" cy="240" rx="8" ry="6" fill="currentColor" />
+            <line x1="248" y1="240" x2="248" y2="200" strokeWidth="2" />
+
+            <ellipse cx="270" cy="230" rx="8" ry="6" fill="currentColor" />
+            <line x1="278" y1="230" x2="278" y2="190" strokeWidth="2" />
+            <line x1="248" y1="200" x2="278" y2="190" strokeWidth="4" />
+            
+            {/* Slur */}
+            <path d="M240 250 Q 350 280 450 250" fill="none" strokeWidth="1.5" />
+            <path d="M240 120 Q 350 150 450 120" fill="none" strokeWidth="1.5" />
+
+            {/* Dynamic Marking */}
+            <text x="240" y="170" fontSize="24" fontStyle="italic" fontWeight="bold" stroke="none" fill="white">pp</text>
+
+              {/* Measure 2 */}
+              <line x1="500" y1="50" x2="500" y2="280" strokeWidth="1" opacity="0.5"/>
+              <ellipse cx="400" cy="90" rx="8" ry="6" fill="white" stroke="white" />
+              <line x1="408" y1="90" x2="408" y2="50" strokeWidth="2" />
+              
+              <ellipse cx="450" cy="80" rx="8" ry="6" fill="white" stroke="white" />
+              <line x1="458" y1="80" x2="458" y2="40" strokeWidth="2" />
+              <line x1="408" y1="50" x2="458" y2="40" strokeWidth="4" />
+          </g>
+        </svg>
+      );
+
+      const SheetMusic = ({ scrollRef }) => {
+        return (
+          <div className="relative w-full h-80 overflow-hidden">
+            
+            {/* Red Playhead Line (Centered) */}
+            <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-red-500/80 z-20 shadow-[0_0_12px_rgba(239,68,68,1)] transform -translate-x-1/2" />
+            
+            {/* Gradient Masks for Fade effect at edges */}
+            <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none" />
+
+            {/* Scrolling Track Container */}
+            <div 
+              ref={scrollRef} 
+              className="flex flex-row absolute top-0 left-0 h-full will-change-transform opacity-90"
+              style={{ width: 'max-content' }} // Ensure children don't wrap
+            >
+              {/* 
+                Long Score "Hack": 
+                Duplicate the SVG multiple times to create a long scrolling effect.
+              */}
+              {[...Array(8)].map((_, i) => (
+                <SheetMusicSvg key={i} />
+              ))}
+            </div>
+          </div>
+        );
+      };
+
+      // ==========================================
+      // Component: FlywheelButton
+      // ==========================================
+
+      const FlywheelButton = ({ tempoRef, measureRef, sheetMusicRef }) => {
+        // --- Physics State ---
+        const velocity = useRef(0);
+        const reqId = useRef(null);
+        const isPlaying = useRef(false);
+        
+        // --- Engine State ---
+        const bpm = useRef(120);
+        const measure = useRef(14.3);
+        const lastFrameTime = useRef(0);
+        
+        // --- Tap Tempo State ---
+        const lastTapTime = useRef(0);
+        const tapHistory = useRef([]);
+
+        // --- Motion Control State ---
+        const [motionAccess, setMotionAccess] = useState(false);
+        const lastShakeTime = useRef(0);
+
+        // --- DOM Refs ---
+        const glowRef = useRef(null);
+        const ringRef = useRef(null);
+
+        // The Game Loop
+        const loop = useCallback((currentTime) => {
+          if (!lastFrameTime.current) lastFrameTime.current = currentTime;
+          const deltaTime = (currentTime - lastFrameTime.current) / 1000;
+          lastFrameTime.current = currentTime;
+
+          const containerWidth = sheetMusicRef.current?.parentElement?.clientWidth || window.innerWidth;
+
+          // 1. Physics: Cruise Control System
+          const targetVelocity = isPlaying.current ? 1.0 : 0.0;
+          
+          // Lerp for smoothing
+          const difference = targetVelocity - velocity.current;
+          velocity.current += difference * 0.02;
+
+          if (!isPlaying.current && Math.abs(velocity.current) < 0.001) {
+            velocity.current = 0;
+          }
+
+          // 2. Playback Engine
+          if (velocity.current > 0.001) {
+            const beatsPerSecond = bpm.current / 60;
+            const measuresPerSecond = beatsPerSecond / 4; 
+            
+            measure.current += measuresPerSecond * deltaTime * velocity.current;
+            
+            if (measureRef.current) {
+              measureRef.current.innerText = measure.current.toFixed(1);
+            }
+
+            // Update Sheet Music Scroll
+            if (sheetMusicRef.current) {
+              const pxPerMeasure = 200; 
+              const patternWidth = 800; // Width of one SVG component
+              const screenCenter = containerWidth / 2;
+              
+              // Infinite Scroll calculation
+              const loopPosition = (measure.current * pxPerMeasure) % patternWidth;
+              const translateX = screenCenter - (patternWidth + loopPosition);
+              
+              sheetMusicRef.current.style.transform = `translateX(${translateX}px)`;
+            }
+          }
+
+          // 3. Visuals
+          if (glowRef.current && ringRef.current) {
+            const visualIntensity = Math.min(velocity.current * 0.6, 1.0);
+            
+            glowRef.current.style.opacity = visualIntensity.toFixed(3);
+            
+            const scale = 1 + (Math.min(velocity.current, 2.0) * 0.3); 
+            glowRef.current.style.transform = `scale(${scale})`;
+            
+            ringRef.current.style.opacity = (visualIntensity * 0.5).toFixed(3);
+            ringRef.current.style.transform = `scale(${1 + velocity.current * 0.15})`;
+          }
+
+          if (isPlaying.current || velocity.current > 0.001) {
+            reqId.current = requestAnimationFrame(loop);
+          } else {
+            reqId.current = null;
+            lastFrameTime.current = 0;
+          }
+        }, [measureRef, sheetMusicRef]);
+
+        const handleClick = useCallback(() => {
+          const now = performance.now();
+          isPlaying.current = true;
+
+          // Physics Impulse
+          velocity.current += 0.4;
+          if (velocity.current > 3.0) velocity.current = 3.0;
+
+          // Tap Tempo
+          if (lastTapTime.current > 0 && (now - lastTapTime.current) < 2000) {
+            const diff = now - lastTapTime.current;
+            const instantBpm = 60000 / diff;
+            
+            tapHistory.current.push(instantBpm);
+            if (tapHistory.current.length > 3) tapHistory.current.shift();
+            
+            const avgBpm = tapHistory.current.reduce((a, b) => a + b, 0) / tapHistory.current.length;
+            
+            const validBpm = Math.max(30, Math.min(300, avgBpm));
+            bpm.current = Math.round(validBpm);
+            
+            if (tempoRef.current) {
+              tempoRef.current.innerText = bpm.current.toString();
+            }
+          } else {
+            tapHistory.current = [];
+          }
+          lastTapTime.current = now;
+
+          if (!reqId.current) {
+            lastFrameTime.current = now;
+            reqId.current = requestAnimationFrame(loop);
+          }
+        }, [loop, tempoRef]);
+
+        const handleMotion = useCallback((event) => {
+          const acc = event.acceleration;
+          if (!acc) return;
+
+          const x = acc.x || 0;
+          const y = acc.y || 0;
+          const z = acc.z || 0;
+
+          const magnitude = Math.sqrt(x*x + y*y + z*z);
+
+          if (magnitude > 15.0) {
+            const now = performance.now();
+            if (now - lastShakeTime.current > 300) {
+              lastShakeTime.current = now;
+              handleClick();
+            }
+          }
+        }, [handleClick]);
+
+        const requestPermission = async () => {
+          if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            try {
+              const response = await DeviceMotionEvent.requestPermission();
+              if (response === 'granted') {
+                window.addEventListener('devicemotion', handleMotion);
+                setMotionAccess(true);
+              }
+            } catch (e) {
+              console.error("Motion permission error:", e);
+            }
+          } else {
+            window.addEventListener('devicemotion', handleMotion);
+            setMotionAccess(true);
+          }
+        };
+
+        useEffect(() => {
+          return () => {
+            if (reqId.current) cancelAnimationFrame(reqId.current);
+            window.removeEventListener('devicemotion', handleMotion);
+          };
+        }, [loop, handleMotion]);
+
+        return (
+          <React.Fragment>
+            {!motionAccess && (
+              <button 
+                onClick={requestPermission}
+                className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-purple-600/90 hover:bg-purple-500 text-white text-sm font-semibold px-4 py-2 rounded-full shadow-lg backdrop-blur-md transition-all animate-pulse"
+              >
+                📲 Enable Motion Control
+              </button>
+            )}
+
+            <div className="relative flex items-center justify-center w-32 h-32">
+              <div ref={ringRef} className="absolute inset-0 rounded-full border border-purple-500 opacity-0 will-change-transform" />
+              <div ref={glowRef} className="absolute w-24 h-24 rounded-full bg-purple-600 blur-xl opacity-0 will-change-transform" />
+              
+              <button 
+                onClick={handleClick}
+                className="relative z-10 w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-transform duration-100 group cursor-pointer"
+                aria-label="Play / Tap Tempo"
+              >
+                <svg width="28" height="32" viewBox="0 0 28 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-1 fill-black">
+                  <path d="M26.5 13.4019C28.5 14.5566 28.5 17.4434 26.5 18.5981L4.75 31.1555C2.75 32.3102 0.250001 30.8668 0.250001 28.5574L0.250002 3.44263C0.250002 1.13323 2.75 -0.31017 4.75 0.84453L26.5 13.4019Z" />
+                </svg>
+              </button>
+            </div>
+          </React.Fragment>
+        );
+      };
+
+      // ==========================================
+      // Component: App
+      // ==========================================
+
+      const App = () => {
+        const tempoRef = useRef(null);
+        const measureRef = useRef(null);
+        const sheetMusicRef = useRef(null);
+
+        return (
+          <div className="min-h-screen bg-black text-white flex flex-col items-center justify-between p-6 overflow-hidden relative selection:bg-purple-500 selection:text-white">
+            
+            {/* Background Ambience */}
+            <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-purple-900/10 to-transparent pointer-events-none" />
+
+            {/* Top Status Bar */}
+            <header className="w-full max-w-lg flex justify-between items-center text-xs font-medium text-gray-400 z-10 tracking-wide">
+              <div className="flex items-center gap-2">
+                <span>BLE: YAMAHA P-515</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>BAT: 84%</span>
+              </div>
+            </header>
+
+            {/* Song Info */}
+            <section className="w-full max-w-lg mt-8 text-center z-10">
+              <h1 className="text-4xl font-bold tracking-tight mb-2 text-white">
+                Clair de Lune
+              </h1>
+              <p className="text-lg text-gray-400 font-medium">
+                Claude Debussy • L. 75
+              </p>
+            </section>
+
+            {/* Sheet Music Visualizer */}
+            <section className="flex-1 w-full max-w-4xl flex items-center justify-center z-10 my-4 overflow-hidden">
+              <SheetMusic scrollRef={sheetMusicRef} />
+            </section>
+
+            {/* Bottom Control Panel */}
+            <div className="w-full max-w-lg z-20 pb-8">
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-900 to-purple-800 rounded-3xl blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+                <div className="relative bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 flex items-center justify-between shadow-2xl">
+                  
+                  {/* Left: Tempo */}
+                  <div className="flex flex-col items-center justify-center w-24">
+                    <span className="text-xs text-gray-500 font-bold tracking-wider mb-1">TEMPO</span>
+                    <span ref={tempoRef} className="text-4xl font-light tabular-nums">120</span>
+                  </div>
+
+                  {/* Center: Flywheel Button */}
+                  <div className="flex-shrink-0 -mt-8 mb-[-1rem]"> 
+                     <FlywheelButton 
+                        tempoRef={tempoRef} 
+                        measureRef={measureRef} 
+                        sheetMusicRef={sheetMusicRef}
+                     />
+                  </div>
+
+                  {/* Right: Measure */}
+                  <div className="flex flex-col items-center justify-center w-24">
+                    <span className="text-xs text-gray-500 font-bold tracking-wider mb-1">MEASURE</span>
+                    <span ref={measureRef} className="text-4xl font-light tabular-nums">14.3</span>
+                  </div>
+
+                </div>
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50 pointer-events-none rounded-t-3xl" />
+              </div>
+            </div>
+
+          </div>
+        );
+      }
+
+      // ==========================================
+      // Mount
+      // ==========================================
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
