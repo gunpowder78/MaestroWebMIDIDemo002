@@ -48,7 +48,8 @@ export function useMidiPlayer() {
   const lastPlayedIndexRef = useRef(0);
 
   /**
-   * Initialize Web MIDI API and get the first output port
+   * Initialize Web MIDI API and connect to preferred output port
+   * Priority: 1. Ports containing "Maestro" 2. Ports containing "loopMIDI" 3. First available
    */
   const initMidiOutput = useCallback(async (): Promise<MIDIOutput | null> => {
     if (!navigator.requestMIDIAccess) {
@@ -65,13 +66,47 @@ export function useMidiPlayer() {
         return null;
       }
 
-      // Use the first available output
-      const output = outputs[0];
-      outputRef.current = output;
-      setOutputName(output.name || 'Unknown MIDI Device');
+      // Log all available outputs for debugging
+      console.log('[useMidiPlayer] Available MIDI outputs:');
+      outputs.forEach((out, idx) => {
+        console.log(`  [${idx}] ${out.name} (${out.manufacturer || 'Unknown manufacturer'})`);
+      });
+
+      // --- Priority-based port selection ---
+      let selectedOutput: MIDIOutput | null = null;
+
+      // Priority 1: Look for "Maestro" in port name
+      const maestroPort = outputs.find(out => 
+        out.name?.toLowerCase().includes('maestro')
+      );
+      if (maestroPort) {
+        selectedOutput = maestroPort;
+        console.log(`[useMidiPlayer] Found preferred port (Maestro): ${maestroPort.name}`);
+      }
+
+      // Priority 2: Look for "loopMIDI" in port name
+      if (!selectedOutput) {
+        const loopMidiPort = outputs.find(out => 
+          out.name?.toLowerCase().includes('loopmidi')
+        );
+        if (loopMidiPort) {
+          selectedOutput = loopMidiPort;
+          console.log(`[useMidiPlayer] Found preferred port (loopMIDI): ${loopMidiPort.name}`);
+        }
+      }
+
+      // Priority 3: Fallback to first available port
+      if (!selectedOutput) {
+        selectedOutput = outputs[0];
+        console.log(`[useMidiPlayer] Using default port (first available): ${selectedOutput.name}`);
+      }
+
+      // Set the selected output
+      outputRef.current = selectedOutput;
+      setOutputName(selectedOutput.name || 'Unknown MIDI Device');
       
-      console.log(`[useMidiPlayer] Connected to MIDI output: ${output.name}`);
-      return output;
+      console.log(`[useMidiPlayer] ✓ Connected to: ${selectedOutput.name}`);
+      return selectedOutput;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to access MIDI';
       setError(message);
@@ -79,6 +114,7 @@ export function useMidiPlayer() {
       return null;
     }
   }, []);
+
 
   /**
    * Load a MIDI file from URL and prepare it for playback
