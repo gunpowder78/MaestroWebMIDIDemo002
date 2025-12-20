@@ -17,6 +17,8 @@ function App() {
 
   // Pixels Per Measure (for visual score calibration)
   const [ppm, setPpm] = useState(300);
+  // Initial Score Offset (to align first note with playhead)
+  const [scoreOffset, setScoreOffset] = useState(-150);
 
   // Track previous seconds to avoid duplicate calls
   const prevSecondsRef = useRef(0);
@@ -68,18 +70,22 @@ function App() {
       </div>
 
       {/* Header / Song Info */}
-      <header className="w-full max-w-lg pt-6 px-6 text-center z-10">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-1 text-white">
+      <header className="w-full max-w-lg pt-4 px-6 text-center z-10">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-0.5 text-white">
           Maestro
         </h1>
-        <p className="text-sm md:text-base text-gray-400 font-medium">
+        <p className="text-xs md:text-sm text-gray-400 font-medium">
           Flywheel MIDI Player
         </p>
       </header>
 
       {/* Sheet Music Visualizer - Center */}
-      <section className="flex-1 w-full max-w-4xl flex items-center justify-center z-10 my-4 overflow-hidden">
-        <SheetMusic measure={physics.measure} pixelsPerMeasure={ppm} />
+      <section className="flex-1 w-full max-w-6xl flex items-center justify-center z-10 my-0 overflow-hidden">
+        <SheetMusic 
+          measure={physics.measure} 
+          pixelsPerMeasure={ppm} 
+          scoreOffset={scoreOffset}
+        />
       </section>
 
       {/* Bottom Control Panel */}
@@ -121,21 +127,41 @@ function App() {
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50 pointer-events-none rounded-t-3xl" />
         </div>
 
-        {/* Calibration Slider */}
-        <div className="bg-zinc-900/50 backdrop-blur-sm border border-white/5 rounded-2xl p-4 flex flex-col gap-2">
-          <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-gray-500 font-bold">
-            <span>Score Speed Calibration (PPM)</span>
-            <span className="text-purple-400">{ppm}px</span>
+        {/* Calibration Panel */}
+        <div className="bg-zinc-900/50 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-4">
+          {/* PPM Slider */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+              <span>Score Speed (PPM)</span>
+              <span className="text-purple-400">{ppm}px</span>
+            </div>
+            <input 
+              type="range" 
+              min="100" 
+              max="1000" 
+              step="1"
+              value={ppm} 
+              onChange={(e) => setPpm(Number(e.target.value))}
+              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+            />
           </div>
-          <input 
-            type="range" 
-            min="100" 
-            max="1000" 
-            step="1"
-            value={ppm} 
-            onChange={(e) => setPpm(Number(e.target.value))}
-            className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
-          />
+
+          {/* Offset Slider */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+              <span>Start Alignment (Offset)</span>
+              <span className="text-orange-400">{scoreOffset}px</span>
+            </div>
+            <input 
+              type="range" 
+              min="-1000" 
+              max="1000" 
+              step="1"
+              value={scoreOffset} 
+              onChange={(e) => setScoreOffset(Number(e.target.value))}
+              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
+            />
+          </div>
         </div>
       </footer>
 

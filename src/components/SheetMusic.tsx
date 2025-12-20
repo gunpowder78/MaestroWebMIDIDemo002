@@ -10,6 +10,10 @@ interface SheetMusicProps {
    * Pixels per measure for scaling the scroll speed.
    */
   pixelsPerMeasure?: number;
+  /**
+   * Initial horizontal offset to align the first note with the red pointer.
+   */
+  scoreOffset?: number;
 }
 
 /**
@@ -19,14 +23,15 @@ interface SheetMusicProps {
  */
 export const SheetMusic: React.FC<SheetMusicProps> = ({ 
   measure, 
-  pixelsPerMeasure = 300 
+  pixelsPerMeasure = 300,
+  scoreOffset = 0
 }) => {
   // Calculate the horizontal offset
-  // We multiply by -1 because we want the image to move left as measure increases
-  const translateX = -1 * measure * pixelsPerMeasure;
+  // We subtract the initial scoreOffset to push the image left/right at the start
+  const translateX = (-1 * measure * pixelsPerMeasure) + scoreOffset;
 
   return (
-    <div className="w-full h-64 overflow-hidden relative border-y border-zinc-800 bg-black shadow-inner flex items-center">
+    <div className="w-full h-[770px] overflow-hidden relative border-y border-zinc-800 bg-black shadow-inner flex items-center">
       {/* 
         Red Playback Pointer (Centered)
         This is the "now" line where the notes being played should cross.
