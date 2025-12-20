@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SheetMusic, FlywheelButton } from './components';
 import { useInertiaEngine, useMidiPlayer } from './hooks';
 
@@ -15,12 +15,15 @@ function App() {
   const physics = useInertiaEngine();
   const midi = useMidiPlayer();
 
+  // Pixels Per Measure (for visual score calibration)
+  const [ppm, setPpm] = useState(300);
+
   // Track previous seconds to avoid duplicate calls
   const prevSecondsRef = useRef(0);
 
   // --- Load MIDI on mount ---
   useEffect(() => {
-    midi.loadSong('/song1.mid');
+    midi.loadSong('/snow_longstripe.mid');
   }, []);
 
   // --- Drive MIDI playback from physics engine ---
@@ -60,7 +63,7 @@ function App() {
           Time: <span className="text-green-400 font-bold">{physics.currentSeconds.toFixed(2)}s</span>
         </div>
         <div className="text-gray-500">
-          Playing: <span className={physics.isPlaying ? 'text-green-400' : 'text-gray-600'}>{physics.isPlaying ? 'Yes' : 'No'}</span>
+          PPM: <span className="text-orange-400 font-bold">{ppm}</span>
         </div>
       </div>
 
@@ -76,11 +79,11 @@ function App() {
 
       {/* Sheet Music Visualizer - Center */}
       <section className="flex-1 w-full max-w-4xl flex items-center justify-center z-10 my-4 overflow-hidden">
-        <SheetMusic measure={physics.measure} />
+        <SheetMusic measure={physics.measure} pixelsPerMeasure={ppm} />
       </section>
 
       {/* Bottom Control Panel */}
-      <footer className="w-full max-w-lg z-20 pb-8 px-6">
+      <footer className="w-full max-w-lg z-20 pb-8 px-6 space-y-6">
         <div className="relative group">
           {/* Glow Background */}
           <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-900 to-purple-800 rounded-3xl blur opacity-30 group-hover:opacity-50 transition duration-1000" />
@@ -116,6 +119,23 @@ function App() {
           
           {/* Top highlight line */}
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50 pointer-events-none rounded-t-3xl" />
+        </div>
+
+        {/* Calibration Slider */}
+        <div className="bg-zinc-900/50 backdrop-blur-sm border border-white/5 rounded-2xl p-4 flex flex-col gap-2">
+          <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+            <span>Score Speed Calibration (PPM)</span>
+            <span className="text-purple-400">{ppm}px</span>
+          </div>
+          <input 
+            type="range" 
+            min="100" 
+            max="1000" 
+            step="1"
+            value={ppm} 
+            onChange={(e) => setPpm(Number(e.target.value))}
+            className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+          />
         </div>
       </footer>
 
