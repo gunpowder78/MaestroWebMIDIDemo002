@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import type { TimingPoint } from '../config/snow_timing';
-import { PS_MEASURE_WIDTH, SVG_ORIGINAL_WIDTH } from '../config/snow_timing';
 
 interface SheetMusicProps {
   /**
@@ -46,9 +45,12 @@ export const SheetMusic: React.FC<SheetMusicProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  // 核心插值逻辑
+  /**
+   * 核心插值逻辑
+   * 使用校准过的 PS_MEASURE_WIDTH 作为缩放基准
+   */
   const translateX = useMemo(() => {
-    if (currentWidth === 0 || !timingData || timingData.length === 0) return 0;
+    if (currentWidth === 0 || !timingData || timingData.length === 0) return scoreOffset;
 
     const currentTime = currentSeconds;
     
@@ -72,21 +74,20 @@ export const SheetMusic: React.FC<SheetMusicProps> = ({
       }
     }
 
-    // 2. 线性插值计算 (PS 测量坐标系，基于 20000px)
-    let targetXInPS = prev.x;
+    // 2. 线性插值计算目标坐标
+    let targetX = prev.x;
     if (next.time !== prev.time) {
       const progress = (currentTime - prev.time) / (next.time - prev.time);
-      targetXInPS = prev.x + (next.x - prev.x) * progress;
+      targetX = prev.x + (next.x - prev.x) * progress;
     }
 
-    // 3. 转换为 SVG 原始坐标系 (viewBox 宽度 113374)
-    const targetXInSVG = targetXInPS * (SVG_ORIGINAL_WIDTH / PS_MEASURE_WIDTH);
+    // 3. 使用校准过的基准宽度进行缩放
+    // PS_MEASURE_WIDTH = 28500 是经过多次测试校准的值
+    const PS_MEASURE_WIDTH = 28500;
+    const browserX = targetX * (currentWidth / PS_MEASURE_WIDTH);
 
-    // 4. 从 SVG 坐标转换为浏览器渲染像素
-    const browserX = targetXInSVG * (currentWidth / SVG_ORIGINAL_WIDTH);
-
-    // 5. 最终位移 (向左移动，使目标点对准红线)
-    return (-1 * browserX) + scoreOffset;
+    // 4. 最终位移
+    return scoreOffset - browserX;
   }, [currentSeconds, timingData, currentWidth, scoreOffset]);
 
   return (

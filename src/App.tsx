@@ -19,8 +19,8 @@ function App() {
   // 解析时间映射表
   const parsedTiming = useMemo(() => parseTimingData(RAW_TIMING_DATA), []);
 
-  // Initial Score Offset (to align first note with playhead)
-  const [scoreOffset, setScoreOffset] = useState(0);
+  // Initial Score Offset (用户校准值)
+  const [scoreOffset, setScoreOffset] = useState(-60);
 
   // Track previous seconds to avoid duplicate calls
   const prevSecondsRef = useRef(0);

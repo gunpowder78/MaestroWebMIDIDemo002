@@ -1,14 +1,14 @@
 
-// PS 中测量时的基准宽度
-// 由于坐标范围 130→28306 超过了 20000，实际基准应约为 29400
-// (经验证：乐谱在 145s 到达终点，MIDI 在 213s 结束，比例 213/145 ≈ 1.47)
-export const PS_MEASURE_WIDTH = 29400;
+// 用户在 PS 中测量时的基准宽度
+// 经校准：28000 时前1分钟良好，但210秒时累积快约3秒，调整为 28500
+export const PS_MEASURE_WIDTH = 28500;
 
-// SVG 文件的原始 viewBox 宽度 (从 snow_visual.svg 的 viewBox 提取)
-export const SVG_ORIGINAL_WIDTH = 113374;
+// SVG 文件的原始 viewBox 宽度 (从 snow_visual.svg 的 viewBox="0 0 113374 2267" 提取)
+export const SVG_VIEWBOX_WIDTH = 113374;
 
-// 保留旧名称以兼容
+// 兼容旧名称
 export const REFERENCE_WIDTH = PS_MEASURE_WIDTH;
+export const SVG_ORIGINAL_WIDTH = SVG_VIEWBOX_WIDTH;
 
 /**
  * 原始时间-坐标映射数据
