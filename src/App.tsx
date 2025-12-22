@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { SheetMusic, FlywheelButton } from './components';
 import { useInertiaEngine, useMidiPlayer } from './hooks';
+import { RAW_TIMING_DATA, parseTimingData } from './config/snow_timing';
 
 /**
  * Main Application Component
  * 
  * Orchestrates the flywheel physics engine with MIDI playback.
- * - SheetMusic displays scrolling notation based on current measure
+ * - SheetMusic displays scrolling notation based on high-precision timing table
  * - FlywheelButton triggers impulses to drive playback
  * - MIDI notes are triggered based on currentSeconds from physics
  */
@@ -15,10 +16,11 @@ function App() {
   const physics = useInertiaEngine();
   const midi = useMidiPlayer();
 
-  // Pixels Per Measure (for visual score calibration)
-  const [ppm, setPpm] = useState(300);
+  // 解析时间映射表
+  const parsedTiming = useMemo(() => parseTimingData(RAW_TIMING_DATA), []);
+
   // Initial Score Offset (to align first note with playhead)
-  const [scoreOffset, setScoreOffset] = useState(-150);
+  const [scoreOffset, setScoreOffset] = useState(0);
 
   // Track previous seconds to avoid duplicate calls
   const prevSecondsRef = useRef(0);
@@ -59,13 +61,7 @@ function App() {
           Velocity: <span className="text-purple-400 font-bold">{physics.velocity.toFixed(2)}</span>
         </div>
         <div className="text-gray-500">
-          Measure: <span className="text-blue-400 font-bold">{physics.measure.toFixed(1)}</span>
-        </div>
-        <div className="text-gray-500">
           Time: <span className="text-green-400 font-bold">{physics.currentSeconds.toFixed(2)}s</span>
-        </div>
-        <div className="text-gray-500">
-          PPM: <span className="text-orange-400 font-bold">{ppm}</span>
         </div>
       </div>
 
@@ -74,7 +70,7 @@ function App() {
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-0.5 text-white">
           Maestro
         </h1>
-        <p className="text-xs md:text-sm text-gray-400 font-medium">
+        <p className="text-xs md:text-sm text-gray-400 font-medium font-mono uppercase tracking-[0.2em]">
           Flywheel MIDI Player
         </p>
       </header>
@@ -82,8 +78,8 @@ function App() {
       {/* Sheet Music Visualizer - Center */}
       <section className="flex-1 w-full max-w-6xl flex items-center justify-center z-10 my-0 overflow-hidden">
         <SheetMusic 
-          measure={physics.measure} 
-          pixelsPerMeasure={ppm} 
+          currentSeconds={physics.currentSeconds}
+          timingData={parsedTiming}
           scoreOffset={scoreOffset}
         />
       </section>
@@ -113,11 +109,11 @@ function App() {
               />
             </div>
 
-            {/* Right: Measure Display */}
+            {/* Right: Time Display */}
             <div className="flex flex-col items-center justify-center w-24">
-              <span className="text-xs text-gray-500 font-bold tracking-wider mb-1">MEASURE</span>
+              <span className="text-xs text-gray-500 font-bold tracking-wider mb-1">TIME</span>
               <span className="text-3xl md:text-4xl font-light tabular-nums text-white">
-                {physics.measure.toFixed(1)}
+                {physics.currentSeconds.toFixed(1)}s
               </span>
             </div>
 
@@ -129,27 +125,10 @@ function App() {
 
         {/* Calibration Panel */}
         <div className="bg-zinc-900/50 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-4">
-          {/* PPM Slider */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-gray-500 font-bold">
-              <span>Score Speed (PPM)</span>
-              <span className="text-purple-400">{ppm}px</span>
-            </div>
-            <input 
-              type="range" 
-              min="100" 
-              max="1000" 
-              step="1"
-              value={ppm} 
-              onChange={(e) => setPpm(Number(e.target.value))}
-              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
-            />
-          </div>
-
           {/* Offset Slider */}
           <div className="space-y-2">
             <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-gray-500 font-bold">
-              <span>Start Alignment (Offset)</span>
+              <span>Start Alignment (Global Offset)</span>
               <span className="text-orange-400">{scoreOffset}px</span>
             </div>
             <input 

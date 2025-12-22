@@ -1,62 +1,117 @@
-import React from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import type { TimingPoint } from '../config/snow_timing';
+import { PS_MEASURE_WIDTH, SVG_ORIGINAL_WIDTH } from '../config/snow_timing';
 
 interface SheetMusicProps {
   /**
-   * Current measure position (float). 
-   * Controls the horizontal scroll via CSS transform translateX.
+   * 当前物理引擎的时间（秒）
    */
-  measure: number;
+  currentSeconds: number;
   /**
-   * Pixels per measure for scaling the scroll speed.
+   * 解析后的时间-坐标映射表
    */
-  pixelsPerMeasure?: number;
+  timingData: TimingPoint[];
   /**
-   * Initial horizontal offset to align the first note with the red pointer.
+   * 初始偏移量（可选）
    */
   scoreOffset?: number;
 }
 
 /**
- * SheetMusic Component (Real SVG Edition)
- * Renders a scrollable real SVG score image.
- * The score scrolls based on the `measure` prop value and `pixelsPerMeasure`.
+ * SheetMusic Component (Adaptive Timing Edition)
+ * 根据时间驱动和预设的像素映射表进行声画同步。
  */
 export const SheetMusic: React.FC<SheetMusicProps> = ({ 
-  measure, 
-  pixelsPerMeasure = 300,
+  currentSeconds,
+  timingData,
   scoreOffset = 0
 }) => {
-  // Calculate the horizontal offset
-  // We subtract the initial scoreOffset to push the image left/right at the start
-  const translateX = (-1 * measure * pixelsPerMeasure) + scoreOffset;
+  const imgRef = useRef<HTMLImageElement>(null);
+  // 状态：图片实际渲染宽度
+  const [currentWidth, setCurrentWidth] = useState(0);
+
+  // 使用 ResizeObserver 监听图片实际宽度变化
+  useEffect(() => {
+    if (!imgRef.current) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === imgRef.current) {
+          setCurrentWidth(entry.contentRect.width);
+        }
+      }
+    });
+
+    observer.observe(imgRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // 核心插值逻辑
+  const translateX = useMemo(() => {
+    if (currentWidth === 0 || !timingData || timingData.length === 0) return 0;
+
+    const currentTime = currentSeconds;
+    
+    // 1. 区间查找
+    let prev = timingData[0];
+    let next = timingData[0];
+
+    if (currentTime <= timingData[0].time) {
+      prev = timingData[0];
+      next = timingData[0];
+    } else if (currentTime >= timingData[timingData.length - 1].time) {
+      prev = timingData[timingData.length - 1];
+      next = timingData[timingData.length - 1];
+    } else {
+      for (let i = 0; i < timingData.length - 1; i++) {
+        if (currentTime >= timingData[i].time && currentTime < timingData[i + 1].time) {
+          prev = timingData[i];
+          next = timingData[i + 1];
+          break;
+        }
+      }
+    }
+
+    // 2. 线性插值计算 (PS 测量坐标系，基于 20000px)
+    let targetXInPS = prev.x;
+    if (next.time !== prev.time) {
+      const progress = (currentTime - prev.time) / (next.time - prev.time);
+      targetXInPS = prev.x + (next.x - prev.x) * progress;
+    }
+
+    // 3. 转换为 SVG 原始坐标系 (viewBox 宽度 113374)
+    const targetXInSVG = targetXInPS * (SVG_ORIGINAL_WIDTH / PS_MEASURE_WIDTH);
+
+    // 4. 从 SVG 坐标转换为浏览器渲染像素
+    const browserX = targetXInSVG * (currentWidth / SVG_ORIGINAL_WIDTH);
+
+    // 5. 最终位移 (向左移动，使目标点对准红线)
+    return (-1 * browserX) + scoreOffset;
+  }, [currentSeconds, timingData, currentWidth, scoreOffset]);
 
   return (
     <div className="w-full h-[770px] overflow-hidden relative border-y border-zinc-800 bg-black shadow-inner flex items-center">
-      {/* 
-        Red Playback Pointer (Centered)
-        This is the "now" line where the notes being played should cross.
-      */}
       <div 
-        className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-red-500 z-20 opacity-50 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+        className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-red-500 z-50 opacity-80 shadow-[0_0_10px_rgba(239,68,68,0.7)]"
         aria-hidden="true"
       />
 
-      {/* 
-        Scroll Container
-        We use 'absolute left-1/2' to anchor the start of the score to the center line.
-        Then translateX moves it based on the current measure.
-      */}
       <div
         className="absolute left-1/2 h-full will-change-transform flex items-center"
         style={{
           transform: `translateX(${translateX}px)`,
-          transition: 'transform 0.1s linear',
+          // 物理引擎驱动下，禁用 CSS 过渡以获得最精确的同步
+          transition: 'none',
         }}
       >
         <img 
+          ref={imgRef}
           src="/snow_visual.svg" 
           alt="Musical Score" 
           className="h-full w-auto max-w-none block"
+          onLoad={() => {
+            if (imgRef.current) setCurrentWidth(imgRef.current.offsetWidth);
+          }}
           style={{ 
             imageRendering: 'auto',
             filter: 'invert(1) brightness(2)',
@@ -65,9 +120,8 @@ export const SheetMusic: React.FC<SheetMusicProps> = ({
         />
       </div>
 
-      {/* Edge Fades for better aesthetic depth */}
-      <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-black to-transparent pointer-events-none z-30" />
-      <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-black to-transparent pointer-events-none z-30" />
+      <div className="absolute left-0 top-0 bottom-0 w-24 bg-linear-to-r from-black to-transparent pointer-events-none z-30" />
+      <div className="absolute right-0 top-0 bottom-0 w-24 bg-linear-to-l from-black to-transparent pointer-events-none z-30" />
     </div>
   );
 };
