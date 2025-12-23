@@ -20,20 +20,6 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // 强制配置 WebView 视口设置 (解决华为 WebView 视口计算错误)
-        WebView webView = getBridge().getWebView();
-        if (webView != null) {
-            android.webkit.WebSettings settings = webView.getSettings();
-            settings.setUseWideViewPort(true);
-            settings.setLoadWithOverviewMode(true);
-            settings.setSupportZoom(false);
-            settings.setBuiltInZoomControls(false);
-            settings.setDisplayZoomControls(false);
-            // 强制使用设备像素密度
-            settings.setMinimumFontSize(1);
-            settings.setMinimumLogicalFontSize(1);
-        }
     }
 
     @Override
@@ -66,6 +52,8 @@ public class MainActivity extends BridgeActivity {
     public void onStart() {
         super.onStart();
         // 为 WebView 添加 MIDI 权限自动授权
+        // 注意：这可能会覆盖 Capacitor 默认的 WebChromeClient 导致桥接失效从而闪退
+        /*
         WebView webView = getBridge().getWebView();
         if (webView != null) {
             webView.setWebChromeClient(new WebChromeClient() {
@@ -85,6 +73,7 @@ public class MainActivity extends BridgeActivity {
                 }
             });
         }
+        */
     }
 
     private void checkAndRequestPermissions() {

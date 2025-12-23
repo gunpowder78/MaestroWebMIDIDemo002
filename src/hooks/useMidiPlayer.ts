@@ -58,7 +58,9 @@ export function useMidiPlayer() {
     }
 
     try {
+      console.log('[useMidiPlayer] Requesting MIDI access...');
       const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+      console.log('[useMidiPlayer] MIDI access granted');
       const outputs = Array.from(midiAccess.outputs.values());
 
       if (outputs.length === 0) {
@@ -103,15 +105,17 @@ export function useMidiPlayer() {
 
       // Set the selected output
       outputRef.current = selectedOutput;
-      setOutputName(selectedOutput.name || 'Unknown MIDI Device');
-      setIsReady(true); // Mark as ready now that we have a connection
+      const name = selectedOutput.name || 'Unknown MIDI Device';
+      setOutputName(name);
+      setIsReady(true);
       
-      console.log(`[useMidiPlayer] ✓ Connected to: ${selectedOutput.name}`);
+      console.log(`[useMidiPlayer] ✓ Successfully bound to: ${name}`);
       return selectedOutput;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to access MIDI';
       setError(message);
       console.error('[useMidiPlayer] MIDI access error:', err);
+      setIsReady(false);
       return null;
     }
   }, []);
