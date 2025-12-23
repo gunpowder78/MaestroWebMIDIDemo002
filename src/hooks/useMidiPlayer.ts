@@ -58,7 +58,7 @@ export function useMidiPlayer() {
     }
 
     try {
-      const midiAccess = await navigator.requestMIDIAccess({ sysex: true });
+      const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
       const outputs = Array.from(midiAccess.outputs.values());
 
       if (outputs.length === 0) {
