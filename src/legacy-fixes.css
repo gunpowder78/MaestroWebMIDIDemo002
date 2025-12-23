@@ -1,0 +1,68 @@
+/* 
+ * 核心适配层 - 针对华为 P30 Pro (HarmonyOS 2.0) 的终极适配方案
+ * 独立文件以确保优先级覆盖
+ */
+
+/* 全局样式必须使用高优先级覆盖 Tailwind 预设 */
+html {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background-color: #000000 !important;
+  -webkit-font-smoothing: antialiased;
+  /* 禁止所有触摸行为 */
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background-color: #000000 !important;
+  /* 禁止触摸滑动和回弹 */
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: auto !important;
+  /* 禁止文本选择 */
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  /* 禁止长按菜单 */
+  -webkit-touch-callout: none !important;
+}
+
+#root {
+  /* 强制四点锁死，无视浏览器视口计算错误 */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  z-index: 1;
+  /* 适配刘海屏 */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  /* 禁止触摸滑动 */
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+  /* Flex 布局 */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 禁止默认的滚动和橡皮筋效果 */
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}

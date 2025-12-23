@@ -3,11 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>maestro-demo-v2</title>
   </head>
-  <body>
+  <body style="margin:0; padding:0; overflow:hidden; background:#000;">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <script>
+      function forceLayout() {
+        // 强制读取 JS 像素高度，无视 CSS 计算
+        var h = window.innerHeight;
+        var w = window.innerWidth;
+        var root = document.getElementById('root');
+        root.style.position = 'fixed';
+        root.style.top = '0px';
+        root.style.left = '0px';
+        root.style.width = w + 'px';
+        root.style.height = h + 'px';
+        root.style.overflow = 'hidden';
+      }
+      window.addEventListener('resize', forceLayout);
+      window.addEventListener('load', forceLayout);
+      setInterval(forceLayout, 1000); // 暴力轮询防止键盘顶起失效
+
+      // 禁止橡皮筋滚动
+      document.body.addEventListener('touchmove', function(e) {
+        if (!e.target.closest('.scrollable')) e.preventDefault();
+      }, { passive: false });
+    </script>
   </body>
 </html>

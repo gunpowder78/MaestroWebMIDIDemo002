@@ -1,1 +1,24 @@
 @import "tailwindcss";
+
+/* 强制全屏填充 - 配合 index.html 中的 JS 脚本 */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  
+  /* 针对移动端的暴力缩放适配 */
+  /* 解决 "UI 太大" 的问题 */
+  /* 布局自适应已修复，移除强制缩放 */
+  @media (max-width: 768px) {
+    /* zoom: 1; */
+  }
+}

@@ -44,7 +44,7 @@ function App() {
   }, [physics.currentSeconds, physics.isPlaying, midi.isReady, midi]);
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-between overflow-hidden relative selection:bg-purple-500 selection:text-white">
+    <div className="h-full w-full bg-black text-white flex flex-col items-center justify-between overflow-hidden relative selection:bg-purple-500 selection:text-white">
       
       {/* Background Gradient Ambience */}
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-purple-900/10 to-transparent pointer-events-none" />
@@ -68,7 +68,7 @@ function App() {
       {/* Header / Song Info */}
       <header className="w-full max-w-lg pt-4 px-6 text-center z-10">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-0.5 text-white">
-          Maestro
+          Maestro (Full Screen)
         </h1>
         <p className="text-xs md:text-sm text-gray-400 font-medium font-mono uppercase tracking-[0.2em]">
           Flywheel MIDI Player

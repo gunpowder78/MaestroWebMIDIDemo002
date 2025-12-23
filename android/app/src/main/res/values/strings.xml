@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Maestro</string>
+    <string name="title_activity_main">Maestro</string>
+    <string name="package_name">com.maestro.demo002</string>
+    <string name="custom_url_scheme">com.maestro.demo002</string>
+</resources>
