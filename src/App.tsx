@@ -40,7 +40,9 @@ function App() {
     prevSecondsRef.current = physics.currentSeconds;
 
     // Trigger MIDI notes at current time
-    midi.playTick(physics.currentSeconds);
+    if (midi.isReady) {
+      midi.playTick(physics.currentSeconds);
+    }
   }, [physics.currentSeconds, physics.isPlaying, midi.isReady, midi]);
 
   return (

@@ -57,6 +57,7 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
   // --- Animation Frame Management ---
   const reqIdRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef(0);
+  const lastUpdateRef = useRef(0);
 
   // --- External State (for component re-rendering) ---
   // We use a single state object to batch updates
@@ -106,14 +107,17 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
       currentSecondsRef.current += deltaTime * velocityRef.current;
     }
 
-    // --- Update External State ---
-    // Batch update to minimize re-renders
-    setState({
-      velocity: velocityRef.current,
-      measure: measureRef.current,
-      currentSeconds: currentSecondsRef.current,
-      isPlaying: isPlayingRef.current,
-    });
+    // --- Update External State (Throttled to 20fps / 50ms) ---
+    const now = performance.now();
+    if (!lastUpdateRef.current || now - lastUpdateRef.current > 50) {
+      lastUpdateRef.current = now;
+      setState({
+        velocity: velocityRef.current,
+        measure: measureRef.current,
+        currentSeconds: currentSecondsRef.current,
+        isPlaying: isPlayingRef.current,
+      });
+    }
 
     // --- Continue Loop ---
     if (isPlayingRef.current || velocityRef.current > 0.001) {
