@@ -53,10 +53,26 @@ function App() {
       <div className="fixed top-4 left-4 z-50 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 text-xs font-mono space-y-1 shadow-lg">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${midi.isReady ? 'bg-green-500' : midi.isLoading ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`} />
-          <span className="text-gray-400">
-            MIDI: {midi.isReady ? midi.outputName || 'Ready' : midi.isLoading ? 'Loading...' : midi.error || 'Not connected'}
-          </span>
+          
+          {!midi.isReady ? (
+            <button 
+              onClick={() => midi.connectMidi()}
+              disabled={midi.isLoading}
+              className="text-gray-300 hover:text-white underline decoration-dotted underline-offset-4 disabled:opacity-50 transition-colors"
+            >
+              {midi.isLoading ? 'Connecting...' : 'Tap to Connect MIDI'}
+            </button>
+          ) : (
+            <span className="text-gray-400">
+              MIDI: {midi.outputName || 'Ready'}
+            </span>
+          )}
         </div>
+        {midi.error && (
+          <div className="text-red-500 text-[10px] bg-red-900/20 p-1 rounded border border-red-900/50">
+            {midi.error}
+          </div>
+        )}
         <div className="text-gray-500">
           Velocity: <span className="text-purple-400 font-bold">{physics.velocity.toFixed(2)}</span>
         </div>

@@ -51,14 +51,14 @@ export function useMidiPlayer() {
    * Initialize Web MIDI API and connect to preferred output port
    * Priority: 1. Ports containing "Maestro" 2. Ports containing "loopMIDI" 3. First available
    */
-  const initMidiOutput = useCallback(async (): Promise<MIDIOutput | null> => {
+  const connectMidi = useCallback(async (): Promise<MIDIOutput | null> => {
     if (!navigator.requestMIDIAccess) {
       setError('Web MIDI API not supported in this browser');
       return null;
     }
 
     try {
-      const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+      const midiAccess = await navigator.requestMIDIAccess({ sysex: true });
       const outputs = Array.from(midiAccess.outputs.values());
 
       if (outputs.length === 0) {
@@ -104,6 +104,7 @@ export function useMidiPlayer() {
       // Set the selected output
       outputRef.current = selectedOutput;
       setOutputName(selectedOutput.name || 'Unknown MIDI Device');
+      setIsReady(true); // Mark as ready now that we have a connection
       
       console.log(`[useMidiPlayer] ✓ Connected to: ${selectedOutput.name}`);
       return selectedOutput;
@@ -175,11 +176,9 @@ export function useMidiPlayer() {
       console.log(`[useMidiPlayer] Prepared ${allNotes.length} notes for playback`);
 
       // 5. Initialize MIDI output if not already done
-      if (!outputRef.current) {
-        await initMidiOutput();
-      }
-
-      setIsReady(true);
+      // REMOVED: Automatic initialization to avoid race conditions with Android permissions
+      // The user must now explicitly call connectMidi()
+      
       setIsLoading(false);
       return true;
 
@@ -190,7 +189,7 @@ export function useMidiPlayer() {
       setIsLoading(false);
       return false;
     }
-  }, [initMidiOutput]);
+  }, []);
 
   /**
    * Play notes at the current time position
@@ -321,6 +320,7 @@ export function useMidiPlayer() {
     getDuration,
     isReady,
     isLoading,
+    connectMidi,
     error,
     outputName,
   };
