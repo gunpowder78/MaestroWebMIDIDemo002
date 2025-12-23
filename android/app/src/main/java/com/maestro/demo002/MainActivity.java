@@ -51,29 +51,22 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onStart() {
         super.onStart();
-        // 为 WebView 添加 MIDI 权限自动授权
-        // 注意：这可能会覆盖 Capacitor 默认的 WebChromeClient 导致桥接失效从而闪退
-        /*
+        // 尝试恢复 MIDI 授权处理器
         WebView webView = getBridge().getWebView();
         if (webView != null) {
             webView.setWebChromeClient(new WebChromeClient() {
                 @Override
-                public void onPermissionRequest(PermissionRequest request) {
-                    // 自动授权 MIDI 相关权限请求
-                    String[] resources = request.getResources();
-                    for (String resource : resources) {
-                        if (resource.equals(PermissionRequest.RESOURCE_MIDI_SYSEX) ||
-                            resource.contains("midi")) {
-                            request.grant(resources);
-                            return;
+                public void onPermissionRequest(final PermissionRequest request) {
+                    // 直接授予所有请求的权限。在 Android 10 上，如果不显示授权会导致 output.send 崩溃
+                    MainActivity.this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            request.grant(request.getResources());
                         }
-                    }
-                    // 其他权限请求正常处理
-                    request.grant(resources);
+                    });
                 }
             });
         }
-        */
     }
 
     private void checkAndRequestPermissions() {
@@ -90,10 +83,14 @@ public class MainActivity extends BridgeActivity {
                 permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
             }
         } else {
-            // Android 10/11 (API 29-30): 蓝牙扫描需要 GPS 位置权限
+            // Android 10/11 (API 29-30): 蓝牙扫描和 MIDI 访问有时需要位置+蓝牙权限
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
                     != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH);
             }
         }
 

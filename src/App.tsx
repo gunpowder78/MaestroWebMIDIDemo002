@@ -32,17 +32,18 @@ function App() {
 
   // --- Drive MIDI playback from physics engine ---
   useEffect(() => {
-    // Only play when physics is active and MIDI is ready
-    if (!physics.isPlaying || !midi.isReady) return;
+    // CRITICAL: Only attempt MIDI calls if:
+    // 1. MIDI is fully connected and ready
+    // 2. Physics is actively playing
+    // 3. We are NOT at the very beginning (0s) to avoid initialization hiccups
+    if (!midi.isReady || !physics.isPlaying || physics.currentSeconds <= 0.001) return;
 
     // Avoid calling playTick if time hasn't changed
     if (physics.currentSeconds === prevSecondsRef.current) return;
     prevSecondsRef.current = physics.currentSeconds;
 
     // Trigger MIDI notes at current time
-    if (midi.isReady) {
-      midi.playTick(physics.currentSeconds);
-    }
+    midi.playTick(physics.currentSeconds);
   }, [physics.currentSeconds, physics.isPlaying, midi.isReady, midi]);
 
   return (
@@ -60,14 +61,22 @@ function App() {
             <button 
               onClick={() => midi.connectMidi()}
               disabled={midi.isLoading}
-              className="text-gray-300 hover:text-white underline decoration-dotted underline-offset-4 disabled:opacity-50 transition-colors"
+              className="text-gray-300 hover:text-white underline decoration-dotted underline-offset-4 disabled:opacity-50 transition-colors cursor-pointer"
             >
               {midi.isLoading ? 'Connecting...' : 'Tap to Connect MIDI'}
             </button>
           ) : (
-            <span className="text-gray-400">
-              MIDI: {midi.outputName || 'Ready'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">
+                MIDI: {midi.outputName || 'Ready'}
+              </span>
+              <button 
+                onClick={() => midi.sendTestNote()}
+                className="px-1.5 py-0.5 bg-green-500/20 hover:bg-green-500/40 text-green-400 rounded text-[10px] border border-green-500/30 transition-colors cursor-pointer"
+              >
+                🔊 Ping
+              </button>
+            </div>
           )}
         </div>
         {midi.error && (
