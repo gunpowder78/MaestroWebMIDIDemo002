@@ -10,21 +10,39 @@ interface ConductingSensorOptions {
  * useConductingSensor Hook
  * 
  * 移植自 AI Studio 早期 Demo 算法：
- * 监听手机加速度计，识别“挥动手柄”或“敲击空气”的动作，并计算 Tap Tempo。
+ * 监听手机加速度计，识别"挥动手柄"或"敲击空气"的动作，并计算 Tap Tempo。
+ * 
+ * 默认开启！
  */
 export function useConductingSensor(options: ConductingSensorOptions = {}) {
   const { threshold = 15.0, debounceMs = 300, onBeat } = options;
 
-  const [isActive, setIsActive] = useState(false);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // UI 状态 - 默认全部为 ON
+  const [isActive, setIsActive] = useState(true);
+  const [hasPermission, _setHasPermission] = useState<boolean | null>(true);
+  const [error, _setError] = useState<string | null>(null);
+  // (Note: _setHasPermission and _setError are intentionally unused in simplified version)
+  void _setHasPermission; void _setError;
+
+  // 用 ref 存储最新的回调，避免闭包陈旧问题
+  const onBeatRef = useRef(onBeat);
+  const thresholdRef = useRef(threshold);
+  const debounceMsRef = useRef(debounceMs);
+  
+  // 同步更新 ref
+  useEffect(() => {
+    onBeatRef.current = onBeat;
+    thresholdRef.current = threshold;
+    debounceMsRef.current = debounceMs;
+  }, [onBeat, threshold, debounceMs]);
 
   // 算法内部状态
   const lastBeatTimeRef = useRef<number>(0);
   const tapHistoryRef = useRef<number[]>([]);
+  const isListeningRef = useRef(false);
 
   /**
-   * 核心处理函数：处理加速度数据
+   * 核心处理函数（使用 ref 读取最新值，无依赖）
    */
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     const acc = event.acceleration;
@@ -34,15 +52,12 @@ export function useConductingSensor(options: ConductingSensorOptions = {}) {
     const y = acc.y || 0;
     const z = acc.z || 0;
 
-    // 计算三轴合力
     const magnitude = Math.sqrt(x * x + y * y + z * z);
     const now = performance.now();
 
-    // 算法逻辑：超过阈值且不在去抖动时间内
-    if (magnitude > threshold) {
-      if (now - lastBeatTimeRef.current > debounceMs) {
+    if (magnitude > thresholdRef.current) {
+      if (now - lastBeatTimeRef.current > debounceMsRef.current) {
         
-        // 计算 Tap Tempo (最近 3 次的平均值)
         let calculatedBpm: number | undefined;
         if (lastBeatTimeRef.current > 0) {
           const diff = now - lastBeatTimeRef.current;
@@ -57,65 +72,47 @@ export function useConductingSensor(options: ConductingSensorOptions = {}) {
 
         lastBeatTimeRef.current = now;
         
-        // 触发回调
-        if (onBeat) {
-          onBeat(calculatedBpm);
+        // 使用 ref 调用最新的回调
+        if (onBeatRef.current) {
+          onBeatRef.current(calculatedBpm);
         }
       }
     }
-  }, [threshold, debounceMs, onBeat]);
+  }, []); // 无依赖，函数引用永远稳定
 
-  /**
-   * 请求传感器权限
-   */
-  const requestPermission = useCallback(async () => {
-    try {
-      // iOS 13+ 需要显式请求权限
-      if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
-        const response = await (DeviceMotionEvent as any).requestPermission();
-        if (response === 'granted') {
-          setHasPermission(true);
-          startListening();
-        } else {
-          setHasPermission(false);
-          setError('Permission denied');
-        }
-      } else {
-        // Android 和其他旧设备直接尝试监听
-        setHasPermission(true);
-        startListening();
-      }
-    } catch (e) {
-      console.error('[ConductingSensor] Permission error:', e);
-      setError('Sensor not supported or permission failed');
+  const startListening = useCallback(() => {
+    if (!isListeningRef.current) {
+      window.addEventListener('devicemotion', handleMotion);
+      isListeningRef.current = true;
+      setIsActive(true);
     }
-  }, []);
+  }, [handleMotion]);
 
-  const startListening = () => {
-    window.addEventListener('devicemotion', handleMotion);
-    setIsActive(true);
-  };
-
-  const stopListening = () => {
+  const stopListening = useCallback(() => {
     window.removeEventListener('devicemotion', handleMotion);
+    isListeningRef.current = false;
     setIsActive(false);
-  };
+  }, [handleMotion]);
 
-  /**
-   * 切换监听状态
-   */
   const toggle = useCallback(() => {
-    if (isActive) {
+    if (isListeningRef.current) {
       stopListening();
     } else {
-      requestPermission();
+      startListening();
     }
-  }, [isActive, requestPermission]);
+  }, [startListening, stopListening]);
 
-  // 组件卸载时清理
+  // ========== 组件挂载时立即启动监听 ==========
   useEffect(() => {
+    // 直接添加监听器（Android 不需要权限）
+    window.addEventListener('devicemotion', handleMotion);
+    isListeningRef.current = true;
+    setIsActive(true);
+    
+    // 卸载时清理
     return () => {
       window.removeEventListener('devicemotion', handleMotion);
+      isListeningRef.current = false;
     };
   }, [handleMotion]);
 
@@ -124,7 +121,7 @@ export function useConductingSensor(options: ConductingSensorOptions = {}) {
     hasPermission,
     error,
     toggle,
-    requestPermission,
+    requestPermission: startListening, // 兼容旧接口
   };
 }
 

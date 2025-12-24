@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { SheetMusic, FlywheelButton } from './components';
 import { useInertiaEngine, useConductingSensor } from './hooks';
 import { useWifiMidiPlayer } from './hooks/useWifiMidiPlayer';
@@ -19,20 +19,23 @@ function App() {
 
   // --- Conducting Mode (AI Studio Feedback Algo) ---
   const [isConductingVisualActive, setIsConductingVisualActive] = useState(false);
-  const sensor = useConductingSensor({
-    onBeat: (bpm) => {
-      // 1. 物理冲量
-      physics.triggerImpulse();
-      
-      // 2. 动态调整 BPM
-      if (bpm) {
-        physics.setBpm(bpm);
-      }
-
-      // 3. 视觉反馈
-      setIsConductingVisualActive(true);
-      setTimeout(() => setIsConductingVisualActive(false), 200);
+  // Stabilize the callback to prevent effect loops
+  const handleBeat = useCallback((bpm?: number) => {
+    // 1. 物理冲量
+    physics.triggerImpulse();
+    
+    // 2. 动态调整 BPM
+    if (bpm) {
+      physics.setBpm(bpm);
     }
+
+    // 3. 视觉反馈
+    setIsConductingVisualActive(true);
+    setTimeout(() => setIsConductingVisualActive(false), 200);
+  }, [physics]); // physics ref is stable but we include it for correctness
+
+  const sensor = useConductingSensor({
+    onBeat: handleBeat
   });
 
   // 解析时间映射表
