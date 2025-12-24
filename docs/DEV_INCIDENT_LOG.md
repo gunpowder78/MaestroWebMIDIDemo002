@@ -71,3 +71,75 @@ TypeScript 编译器因 `TS6133: 'xxx' is declared but its value is never read` 
 
 - 工作流规范: `.agent/workflows/capacitor-android-build.md`
 - Agent Rules: `C:\Users\hxj\.gemini\GEMINI.md`
+
+---
+
+## 2024-12-24 (晚): Node.js v24 + Vite/Rollup 构建崩溃
+
+### 事故概述
+
+v1.0.2 代码重构完成后，执行 `npm run build` 时 Vite 在 `renderChunk` 阶段静默退出 (Exit code 1)。
+
+### 环境信息
+
+- Node.js: v24.11.0 (最新版)
+- Vite: 5.4.19
+- OS: Windows 11
+
+### 故障现象
+
+```
+vite v5.4.19 building for production...
+transforming...
+✓ 84 modules transformed.
+[静默退出，无错误信息]
+```
+
+### 根因分析
+
+Node.js v24 是非常新的版本，其内部 V8 引擎和原生模块 ABI 可能与 Rollup 的原生 bindings (用于 tree-shaking、code splitting 等) 存在兼容性问题。
+
+### 尝试过的方案（失败）
+
+1. 降级 Vite 版本 → 无效
+2. 降级 Tailwind 版本 → 无效
+3. 禁用 minify、sourcemap、cssCodeSplit → 无效
+4. 禁用 Rollup tree-shaking + inlineDynamicImports → 无效
+
+### 最终解决方案
+
+**完全绕过 Vite/Rollup，使用纯 esbuild + Tailwind CLI 构建：**
+
+1. 创建 `scripts/build-esbuild.mjs`
+2. 使用 esbuild 打包 JS/TSX
+3. 使用 Tailwind CLI 独立处理 CSS
+4. 手动生成 index.html
+
+### 新增命令
+
+```bash
+npm run build:safe   # 使用 esbuild 构建，绕过 Rollup
+```
+
+### 构建产物
+
+```
+dist/
+├── assets/
+│   ├── main.js     (672.88 KB)
+│   ├── style.css   (16.80 KB)
+│   └── main.css    (0.28 KB)
+├── index.html
+└── [public assets]
+```
+
+### 经验教训
+
+- Node.js LTS 版本 (v20/v22) 比最新版更稳定
+- esbuild 比 Rollup 更轻量且兼容性更好
+- 保留备选构建方案 (`build:safe`) 应对紧急情况
+
+### 后续建议
+
+- 考虑在 CI/CD 中固定 Node.js 版本为 LTS
+- 使用 nvm 管理多版本 Node.js

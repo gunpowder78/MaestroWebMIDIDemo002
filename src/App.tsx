@@ -19,27 +19,21 @@ function App() {
 
   // --- Conducting Mode (AI Studio Feedback Algo) ---
   const [isConductingVisualActive, setIsConductingVisualActive] = useState(false);
-  
   // Stabilize the callback to prevent effect loops
   const handleBeat = useCallback((bpm?: number) => {
-    // Professional User Requirement:
-    // User movements should drive the tempo incrementally (physics inertia)
-    // and hold the speed when stopping. 
-    
+    // v1.0.2: 使用 setTargetBpm 实现平滑 BPM 过渡
+    // 不再直接调用 triggerImpulse，改为仅视觉反馈
     if (bpm) {
-      // Logic: targetV = userBpm / defaultBpm
-      // e.g. User taps 150 BPM, Default is 120 -> targetV = 1.25
-      const targetV = bpm / 120; // 120 is the default BPM in timing table
-      physics.setTargetVelocity(targetV);
-    } else {
-      // Fallback pulse if no BPM yet
-      physics.triggerImpulse();
+      physics.setTargetBpm(bpm);
     }
+    
+    // BPM 变化时触发视觉冲量反馈
+    physics.triggerImpulse();
 
-    // Visual feedback
+    // 视觉反馈
     setIsConductingVisualActive(true);
     setTimeout(() => setIsConductingVisualActive(false), 200);
-  }, [physics]); 
+  }, [physics]); // physics ref is stable but we include it for correctness
 
   const sensor = useConductingSensor({
     onBeat: handleBeat
@@ -149,8 +143,16 @@ function App() {
 
         {/* Physics Info */}
         <div className="text-gray-500 pt-1 border-t border-white/10">
+          <div>BPM: <span className="text-orange-400 font-bold">{physics.currentBpm}</span></div>
           <div>Velocity: <span className="text-cyan-400">{physics.velocity.toFixed(2)}</span></div>
           <div>Time: <span className="text-cyan-400">{physics.currentSeconds.toFixed(2)}s</span></div>
+          {/* v1.0.2: 指挥锁定状态指示 */}
+          <div className="flex items-center gap-1 mt-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${sensor.isConducting ? 'bg-green-400 animate-pulse' : 'bg-gray-600'}`} />
+            <span className="text-[10px]">
+              {sensor.isConducting ? 'Conducting...' : 'Speed Locked'}
+            </span>
+          </div>
         </div>
           
         {/* Conducting Mode Toggle */}
@@ -208,15 +210,7 @@ function App() {
           velocity={physics.velocity}
           currentSeconds={physics.currentSeconds}
           isPlaying={physics.isPlaying}
-          onTrigger={() => {
-            if (!physics.isPlaying && physics.velocity < 0.1) {
-              // First play: set to normal speed (1.0)
-              physics.setTargetVelocity(1.0);
-              physics.togglePlay();
-            } else {
-              physics.togglePlay();
-            }
-          }}
+          onTrigger={physics.togglePlay}
         />
 
         {/* Score Offset Calibration */}

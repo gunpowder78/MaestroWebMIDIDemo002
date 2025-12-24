@@ -7,7 +7,7 @@
 ### A. 准备工作
 
 1. **网络连接**: 确保您的 Windows 电脑和 Android 手机连接在**同一个 WiFi** 网络下。
-2. **安装应用**: 将 `delivery/Maestro-v1.0.apk` 安装到您的 Android 设备上。
+2. **安装应用**: 将 `delivery/Maestro-v1.0.2.apk` 安装到您的 Android 设备上。
 
 ### B. 运行 Bridge Server (PC 端)
 
@@ -44,7 +44,7 @@
 
 - **无法连接到服务器？**
   - 检查手机和电脑是否在同一网段。
-  - 检查电脑防火墙是否允许 `Maestro-Bridge.exe` 的网络访问（端口默认为 8080）。
+  - 检查电脑防火墙是否允许 `Maestro-Bridge.exe` 的网络访问（端口默认为 3030）。
 - **没有声音？**
   - 确保 Bridge Server 选择了正确的虚拟 MIDI 端口。
   - 确保您的渲染软件（如 Max/MSP 或 VST 宿主）已打开并选择了相同的 MIDI 输入端口。

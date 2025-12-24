@@ -1,11 +1,12 @@
 {
   "name": "maestro-demo-v2",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:safe": "node scripts/build-esbuild.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -13,7 +14,6 @@
     "@capacitor/android": "^8.0.0",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
-    "@tailwindcss/postcss": "^4.1.18",
     "@tonejs/midi": "^2.0.28",
     "clsx": "^2.1.1",
     "lucide-react": "^0.561.0",
@@ -29,14 +29,15 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
+    "esbuild": "^0.27.2",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.18",
+    "tailwindcss": "^3.4.19",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^5.4.19"
   }
 }

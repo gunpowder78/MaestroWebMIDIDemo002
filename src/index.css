@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* 强制全屏填充 - 配合 index.html 中的 JS 脚本 */
 html, body {
