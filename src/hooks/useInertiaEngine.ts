@@ -24,6 +24,8 @@ interface InertiaEngineState {
 interface InertiaEngineActions {
   /** Trigger an impulse to add momentum */
   triggerImpulse: () => void;
+  /** Set target velocity based on tap tempo or external sensor */
+  setTargetVelocity: (targetV: number) => void;
   /** Toggle play/pause state without adding impulse */
   togglePlay: () => void;
   /** Stop the engine and reset velocity */
@@ -51,18 +53,19 @@ type UseInertiaEngineReturn = InertiaEngineState & InertiaEngineActions;
 export function useInertiaEngine(): UseInertiaEngineReturn {
   // --- Internal Physics State (refs to avoid re-renders) ---
   const velocityRef = useRef(0);
+  const targetVelocityRef = useRef<number | null>(null); // External override target
   const measureRef = useRef(0);
   const currentSecondsRef = useRef(0);
   const bpmRef = useRef(BPM_DEFAULT);
   const isPlayingRef = useRef(false);
+  const lastInteractionTimeRef = useRef(0);
   
   // --- Animation Frame Management ---
   const reqIdRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef(0);
   const lastUpdateRef = useRef(0);
 
-  // --- External State (for component re-rendering) ---
-  // We use a single state object to batch updates
+  // --- External State ---
   const [state, setState] = useState<InertiaEngineState>({
     velocity: 0,
     measure: 0,
@@ -72,23 +75,42 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
 
   /**
    * Core physics update loop
-   * Called every animation frame via requestAnimationFrame
    */
   const updatePhysics = useCallback((currentTime: number) => {
-    // Calculate delta time
     if (!lastFrameTimeRef.current) {
       lastFrameTimeRef.current = currentTime;
     }
     const deltaTime = (currentTime - lastFrameTimeRef.current) / 1000;
     lastFrameTimeRef.current = currentTime;
 
-    // --- Apply Friction (Damping) ---
-    velocityRef.current *= FRICTION;
+    const now = performance.now();
+    const timeSinceLastInteraction = now - lastInteractionTimeRef.current;
 
-    // --- Cruise Control ---
-    // If we're playing and velocity drops below minimum, maintain cruise speed
-    if (isPlayingRef.current && velocityRef.current < MIN_SPEED && velocityRef.current > 0.001) {
-      velocityRef.current = MIN_SPEED;
+    // --- APPLY PHYSICS ---
+    
+    if (targetVelocityRef.current !== null) {
+      // Smoothly interpolate towards the target velocity set by sensors
+      const lerpFactor = 0.1; 
+      velocityRef.current += (targetVelocityRef.current - velocityRef.current) * lerpFactor;
+      
+      // Clear target after a while if no new input
+      if (timeSinceLastInteraction > 1000) {
+        targetVelocityRef.current = null;
+      }
+    } else {
+      // --- Standard Inertia & Friction ---
+      // 1. If PAUSED: Always apply friction until stopped.
+      // 2. If PLAYING: Apply friction only during interaction (2s window). 
+      //    After stop moving, it stays at the current speed.
+      if (!isPlayingRef.current || timeSinceLastInteraction < 2000) {
+        velocityRef.current *= FRICTION;
+      }
+    }
+
+    // --- Cruise Control / Minimum Threshold ---
+    // Rule: Never drop below 0.1 if playing, to keep music going
+    if (isPlayingRef.current && velocityRef.current < 0.1) {
+      velocityRef.current = 0.1;
     }
 
     // --- Stop threshold ---
@@ -98,22 +120,14 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
 
     // --- Update Position ---
     if (velocityRef.current > 0.001) {
-      // Calculate measures per second based on BPM
       const beatsPerSecond = bpmRef.current / 60;
       const measuresPerSecond = beatsPerSecond / BEATS_PER_MEASURE;
-
-      // Update measure position
       measureRef.current += measuresPerSecond * deltaTime * velocityRef.current;
-
-      // --- CRITICAL FIX: Playback Speed scaling ---
-      // We scale the progression of time based on how current BPM relates to the default
-      // This ensures that gestural BPM changes actually speed up the MIDI playback.
       const timeScale = bpmRef.current / BPM_DEFAULT;
       currentSecondsRef.current += deltaTime * velocityRef.current * timeScale;
     }
 
-    // --- Update External State (Throttled to 20fps / 50ms) ---
-    const now = performance.now();
+    // --- Update External State (Throttled) ---
     if (!lastUpdateRef.current || now - lastUpdateRef.current > 50) {
       lastUpdateRef.current = now;
       setState({
@@ -124,19 +138,14 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
       });
     }
 
-    // --- Continue Loop ---
     if (isPlayingRef.current || velocityRef.current > 0.001) {
       reqIdRef.current = requestAnimationFrame(updatePhysics);
     } else {
-      // Engine has stopped
       reqIdRef.current = null;
       lastFrameTimeRef.current = 0;
     }
   }, []);
 
-  /**
-   * Start the animation loop if not already running
-   */
   const startLoop = useCallback(() => {
     if (!reqIdRef.current) {
       lastFrameTimeRef.current = performance.now();
@@ -145,20 +154,24 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
   }, [updatePhysics]);
 
   /**
-   * Trigger an impulse - adds momentum to the flywheel
-   * This is the main interaction point for user clicks
+   * Set a temporary target velocity (usually from conducting hits)
+   */
+  const setTargetVelocity = useCallback((targetV: number) => {
+    targetVelocityRef.current = targetV;
+    lastInteractionTimeRef.current = performance.now();
+    startLoop();
+  }, [startLoop]);
+
+  /**
+   * Trigger a traditional impulse (kick the wheel)
    */
   const triggerImpulse = useCallback(() => {
-    // Mark as playing
     isPlayingRef.current = true;
-
-    // Apply impulse with velocity cap
+    lastInteractionTimeRef.current = performance.now();
     velocityRef.current += IMPULSE;
     if (velocityRef.current > MAX_VELOCITY) {
       velocityRef.current = MAX_VELOCITY;
     }
-
-    // Ensure loop is running
     startLoop();
   }, [startLoop]);
 
@@ -209,6 +222,7 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
     currentSeconds: state.currentSeconds,
     isPlaying: state.isPlaying,
     triggerImpulse,
+    setTargetVelocity,
     togglePlay,
     stop,
     setBpm,

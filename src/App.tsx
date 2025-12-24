@@ -19,20 +19,27 @@ function App() {
 
   // --- Conducting Mode (AI Studio Feedback Algo) ---
   const [isConductingVisualActive, setIsConductingVisualActive] = useState(false);
+  
   // Stabilize the callback to prevent effect loops
   const handleBeat = useCallback((bpm?: number) => {
-    // 1. 物理冲量
-    physics.triggerImpulse();
+    // Professional User Requirement:
+    // User movements should drive the tempo incrementally (physics inertia)
+    // and hold the speed when stopping. 
     
-    // 2. 动态调整 BPM
     if (bpm) {
-      physics.setBpm(bpm);
+      // Logic: targetV = userBpm / defaultBpm
+      // e.g. User taps 150 BPM, Default is 120 -> targetV = 1.25
+      const targetV = bpm / 120; // 120 is the default BPM in timing table
+      physics.setTargetVelocity(targetV);
+    } else {
+      // Fallback pulse if no BPM yet
+      physics.triggerImpulse();
     }
 
-    // 3. 视觉反馈
+    // Visual feedback
     setIsConductingVisualActive(true);
     setTimeout(() => setIsConductingVisualActive(false), 200);
-  }, [physics]); // physics ref is stable but we include it for correctness
+  }, [physics]); 
 
   const sensor = useConductingSensor({
     onBeat: handleBeat
@@ -201,7 +208,15 @@ function App() {
           velocity={physics.velocity}
           currentSeconds={physics.currentSeconds}
           isPlaying={physics.isPlaying}
-          onTrigger={physics.togglePlay}
+          onTrigger={() => {
+            if (!physics.isPlaying && physics.velocity < 0.1) {
+              // First play: set to normal speed (1.0)
+              physics.setTargetVelocity(1.0);
+              physics.togglePlay();
+            } else {
+              physics.togglePlay();
+            }
+          }}
         />
 
         {/* Score Offset Calibration */}
