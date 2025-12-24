@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "WebSocket to MIDI bridge server for Maestro Demo",
   "main": "server.js",
+  "bin": "server.js",
   "scripts": {
     "start": "node server.js"
   },
