@@ -41,6 +41,10 @@ export function useConductingSensor(options: ConductingSensorOptions = {}) {
   const tapHistoryRef = useRef<number[]>([]);
   const isListeningRef = useRef(false);
 
+  // 实时挥棒状态 (Active Conducting)
+  const [isConducting, setIsConducting] = useState(false);
+  const idleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   /**
    * 核心处理函数（使用 ref 读取最新值，无依赖）
    */
@@ -58,6 +62,13 @@ export function useConductingSensor(options: ConductingSensorOptions = {}) {
     if (magnitude > thresholdRef.current) {
       if (now - lastBeatTimeRef.current > debounceMsRef.current) {
         
+        // --- 激活 Conducting 状态 ---
+        setIsConducting(true);
+        if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+        idleTimeoutRef.current = setTimeout(() => {
+          setIsConducting(false);
+        }, 1500); // 1.5s 无操作则视为停止
+
         let calculatedBpm: number | undefined;
         if (lastBeatTimeRef.current > 0) {
           const diff = now - lastBeatTimeRef.current;
@@ -92,6 +103,7 @@ export function useConductingSensor(options: ConductingSensorOptions = {}) {
     window.removeEventListener('devicemotion', handleMotion);
     isListeningRef.current = false;
     setIsActive(false);
+    setIsConducting(false);
   }, [handleMotion]);
 
   const toggle = useCallback(() => {
@@ -113,11 +125,13 @@ export function useConductingSensor(options: ConductingSensorOptions = {}) {
     return () => {
       window.removeEventListener('devicemotion', handleMotion);
       isListeningRef.current = false;
+      if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
     };
   }, [handleMotion]);
 
   return {
-    isActive,
+    isActive, // 开关状态
+    isConducting, // 实时挥棒状态
     hasPermission,
     error,
     toggle,

@@ -1,142 +1,124 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 
 /**
- * Physics constants - must match the original algorithm exactly
+ * Physics & BPM constants
  */
 const FRICTION = 0.98;         // Damping factor per frame
-const IMPULSE = 0.3;           // Velocity added per click
-const MIN_SPEED = 0.05;        // Cruise control minimum speed
-const MAX_VELOCITY = 3.0;      // Maximum velocity cap
-const BPM_DEFAULT = 120;       // Default beats per minute
+const MIN_SPEED = 0.01;        // Velocity threshold for playing state
+const BPM_DEFAULT = 80;        // Default beats per minute
 const BEATS_PER_MEASURE = 4;   // Beats per measure (4/4 time assumed)
 
-interface InertiaEngineState {
-  /** Current velocity of the flywheel (0 to MAX_VELOCITY) */
-  velocity: number;
-  /** Current measure position (float) */
-  measure: number;
-  /** Current playback time in seconds */
-  currentSeconds: number;
-  /** Whether the engine is currently playing */
-  isPlaying: boolean;
-}
-
-interface InertiaEngineActions {
-  /** Trigger an impulse to add momentum */
-  triggerImpulse: () => void;
-  /** Toggle play/pause state without adding impulse */
-  togglePlay: () => void;
-  /** Stop the engine and reset velocity */
-  stop: () => void;
-  /** Set the BPM (beats per minute) */
-  setBpm: (bpm: number) => void;
-}
-
-type UseInertiaEngineReturn = InertiaEngineState & InertiaEngineActions;
-
 /**
- * useInertiaEngine Hook
- * 
- * A physics simulation hook for the flywheel music player.
- * 
- * Algorithm (strict replication from original):
- * - Friction (Damping): velocity *= 0.98 per frame
- * - Impulse (Momentum): Each click adds +0.3 to velocity
- * - Cruise Control: When velocity decays below minSpeed (0.05), maintain at minSpeed
- * 
- * Uses requestAnimationFrame for smooth 60fps updates.
- * Uses useRef for internal state to avoid unnecessary re-renders.
- * Only triggers re-render when external state needs to be read.
+ * Linear interpolation helper
  */
-export function useInertiaEngine(): UseInertiaEngineReturn {
-  // --- Internal Physics State (refs to avoid re-renders) ---
+const lerp = (start: number, end: number, t: number) => {
+  return start * (1 - t) + end * t;
+};
+
+export interface InertiaEngineState {
+  velocity: number;
+  measure: number;
+  currentSeconds: number;
+  isPlaying: boolean;
+  currentBpm: number;
+}
+
+export interface InertiaEngineActions {
+  triggerImpulse: () => void;
+  togglePlay: () => void;
+  stop: () => void;
+  setTargetBpm: (bpm: number) => void;
+}
+
+export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
+  // --- Internal Physics State ---
   const velocityRef = useRef(0);
   const measureRef = useRef(0);
   const currentSecondsRef = useRef(0);
-  const bpmRef = useRef(BPM_DEFAULT);
-  const isPlayingRef = useRef(false);
   
-  // --- Animation Frame Management ---
+  // --- BPM State ---
+  const targetBpmRef = useRef(BPM_DEFAULT);
+  const currentBpmRef = useRef(BPM_DEFAULT);
+  
+  // --- Loop State ---
   const reqIdRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef(0);
   const lastUpdateRef = useRef(0);
 
-  // --- External State (for component re-rendering) ---
-  // We use a single state object to batch updates
+  // --- External State (for React rendering) ---
   const [state, setState] = useState<InertiaEngineState>({
     velocity: 0,
     measure: 0,
     currentSeconds: 0,
     isPlaying: false,
+    currentBpm: BPM_DEFAULT,
   });
 
   /**
-   * Core physics update loop
-   * Called every animation frame via requestAnimationFrame
+   * Core update loop
    */
   const updatePhysics = useCallback((currentTime: number) => {
-    // Calculate delta time
     if (!lastFrameTimeRef.current) {
       lastFrameTimeRef.current = currentTime;
     }
     const deltaTime = (currentTime - lastFrameTimeRef.current) / 1000;
     lastFrameTimeRef.current = currentTime;
 
-    // --- Apply Friction (Damping) ---
+    // 1. Velocity Update (Friction)
+    // Always apply friction monitoring
     velocityRef.current *= FRICTION;
 
-    // --- Cruise Control ---
-    // If we're playing and velocity drops below minimum, maintain cruise speed
-    if (isPlayingRef.current && velocityRef.current < MIN_SPEED && velocityRef.current > 0.001) {
-      velocityRef.current = MIN_SPEED;
-    }
+    // 2. Playback State Determination
+    // Logic: If velocity > 0.01, we are "playing".
+    const isActive = velocityRef.current > MIN_SPEED;
 
-    // --- Stop threshold ---
-    if (!isPlayingRef.current && velocityRef.current < 0.001) {
+    if (isActive) {
+      // --- BPM Update ---
+      // Smoothly transition currentBpm to targetBpm
+      currentBpmRef.current = lerp(currentBpmRef.current, targetBpmRef.current, 0.1);
+
+      // --- Time Update ---
+      // Formula: time += (currentBpm / 60) * delta
+      // This calculates the number of beats elapsed in this frame
+      const beatsDelta = (currentBpmRef.current / 60) * deltaTime;
+
+      // Update Measure (beats / 4)
+      measureRef.current += beatsDelta / BEATS_PER_MEASURE;
+
+      // Update Seconds
+      // Use the speed ratio (currentBpm / Default) to scale "musical time"
+      // or simply accumulate real-time if we want a stopwatch.
+      // Based on context of "Project Maestro", this likely drives a cursor that should match the audio.
+      // Scaling time by playback speed is standard.
+      const timeScale = currentBpmRef.current / BPM_DEFAULT;
+      currentSecondsRef.current += deltaTime * timeScale;
+    } else {
+      // Stopped
       velocityRef.current = 0;
     }
 
-    // --- Update Position ---
-    if (velocityRef.current > 0.001) {
-      // Calculate measures per second based on BPM
-      const beatsPerSecond = bpmRef.current / 60;
-      const measuresPerSecond = beatsPerSecond / BEATS_PER_MEASURE;
-
-      // Update measure position
-      measureRef.current += measuresPerSecond * deltaTime * velocityRef.current;
-
-      // --- CRITICAL FIX: Playback Speed scaling ---
-      // We scale the progression of time based on how current BPM relates to the default
-      // This ensures that gestural BPM changes actually speed up the MIDI playback.
-      const timeScale = bpmRef.current / BPM_DEFAULT;
-      currentSecondsRef.current += deltaTime * velocityRef.current * timeScale;
-    }
-
-    // --- Update External State (Throttled to 20fps / 50ms) ---
+    // --- Update External State (Throttled to ~20fps) ---
     const now = performance.now();
     if (!lastUpdateRef.current || now - lastUpdateRef.current > 50) {
       lastUpdateRef.current = now;
       setState({
-        velocity: velocityRef.current,
+        velocity: Math.abs(velocityRef.current) < 0.001 ? 0 : velocityRef.current,
         measure: measureRef.current,
         currentSeconds: currentSecondsRef.current,
-        isPlaying: isPlayingRef.current,
+        isPlaying: isActive,
+        currentBpm: Math.round(currentBpmRef.current),
       });
     }
 
-    // --- Continue Loop ---
-    if (isPlayingRef.current || velocityRef.current > 0.001) {
+    // --- Loop Continuation ---
+    if (isActive || velocityRef.current > 0.001) {
       reqIdRef.current = requestAnimationFrame(updatePhysics);
     } else {
-      // Engine has stopped
       reqIdRef.current = null;
       lastFrameTimeRef.current = 0;
     }
   }, []);
 
-  /**
-   * Start the animation loop if not already running
-   */
   const startLoop = useCallback(() => {
     if (!reqIdRef.current) {
       lastFrameTimeRef.current = performance.now();
@@ -145,56 +127,50 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
   }, [updatePhysics]);
 
   /**
-   * Trigger an impulse - adds momentum to the flywheel
-   * This is the main interaction point for user clicks
+   * Action: Trigger Impulse
+   * Logic: Reset velocity to 1.0 (Activator)
+   * Does NOT increase speed/bpm.
    */
   const triggerImpulse = useCallback(() => {
-    // Mark as playing
-    isPlayingRef.current = true;
-
-    // Apply impulse with velocity cap
-    velocityRef.current += IMPULSE;
-    if (velocityRef.current > MAX_VELOCITY) {
-      velocityRef.current = MAX_VELOCITY;
-    }
-
-    // Ensure loop is running
+    velocityRef.current = 1.0;
     startLoop();
   }, [startLoop]);
 
   /**
-   * Toggle play/pause - Does NOT add impulse
+   * Action: Toggle Play/Pause
    */
   const togglePlay = useCallback(() => {
-    if (isPlayingRef.current) {
-      isPlayingRef.current = false;
+    // Check if currently playing based on velocity threshold or active loop
+    if (velocityRef.current > MIN_SPEED) {
+      // Stop
+      velocityRef.current = 0;
     } else {
-      isPlayingRef.current = true;
-      // If stopped, give a tiny nudge to start the loop
-      if (velocityRef.current < MIN_SPEED) {
-        velocityRef.current = MIN_SPEED;
-      }
+      // Start
+      velocityRef.current = 1.0;
       startLoop();
     }
   }, [startLoop]);
 
   /**
-   * Stop the engine
+   * Action: Stop
    */
   const stop = useCallback(() => {
-    isPlayingRef.current = false;
-    // Let friction naturally bring it to a stop
+    velocityRef.current = 0;
+    measureRef.current = 0;
+    currentSecondsRef.current = 0;
+    // We let the loop run one last time to update state to 0/false then die
   }, []);
 
   /**
-   * Set the BPM for playback speed
+   * Action: Set Target BPM
    */
-  const setBpm = useCallback((bpm: number) => {
-    // Clamp BPM to reasonable range
-    bpmRef.current = Math.max(30, Math.min(300, bpm));
+  const setTargetBpm = useCallback((bpm: number) => {
+    // Clamp securely
+    const clamped = Math.max(30, Math.min(300, bpm));
+    targetBpmRef.current = clamped;
   }, []);
 
-  // --- Cleanup on unmount ---
+  // Cleanup
   useEffect(() => {
     return () => {
       if (reqIdRef.current) {
@@ -208,10 +184,11 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
     measure: state.measure,
     currentSeconds: state.currentSeconds,
     isPlaying: state.isPlaying,
+    currentBpm: state.currentBpm,
     triggerImpulse,
     togglePlay,
     stop,
-    setBpm,
+    setTargetBpm,
   };
 }
 

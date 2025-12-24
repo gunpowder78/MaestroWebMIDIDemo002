@@ -21,12 +21,12 @@ function App() {
   const [isConductingVisualActive, setIsConductingVisualActive] = useState(false);
   // Stabilize the callback to prevent effect loops
   const handleBeat = useCallback((bpm?: number) => {
-    // 1. 物理冲量
+    // 1. 物理冲量 (Keep engine awake / reset velocity to 1.0)
     physics.triggerImpulse();
     
     // 2. 动态调整 BPM
     if (bpm) {
-      physics.setBpm(bpm);
+      physics.setTargetBpm(bpm);
     }
 
     // 3. 视觉反馈
@@ -143,6 +143,7 @@ function App() {
         {/* Physics Info */}
         <div className="text-gray-500 pt-1 border-t border-white/10">
           <div>Velocity: <span className="text-cyan-400">{physics.velocity.toFixed(2)}</span></div>
+          <div>BPM: <span className="text-purple-400">{physics.currentBpm}</span></div>
           <div>Time: <span className="text-cyan-400">{physics.currentSeconds.toFixed(2)}s</span></div>
         </div>
           
@@ -163,6 +164,12 @@ function App() {
             <span className="text-[10px]">{sensor.isActive ? 'ON' : 'OFF'}</span>
           </button>
           {sensor.error && <p className="text-[9px] text-red-500 mt-1">{sensor.error}</p>}
+          {/* Debug: display real-time conducting status */}
+          {sensor.isActive && (
+            <div className="mt-1 text-[9px] text-gray-500 flex justify-between">
+               <span>Signal: {sensor.isConducting ? <span className="text-green-400">ACTIVE</span> : 'IDLE'}</span>
+            </div>
+          )}
         </div>
       </div>
       
