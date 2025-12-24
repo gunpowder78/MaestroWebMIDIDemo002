@@ -100,9 +100,12 @@ export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
       });
     }
 
-    // --- Loop Continuation ---
-    // Keep loop running if playing OR if velocity is still decaying
-    if (isPlaying || velocityRef.current > 0.001) {
+    // --- Loop Continuation (CRUISE CONTROL FIX v1.0.5) ---
+    // CRITICAL: 定速巡航模式的关键逻辑
+    // 循环必须在 isPlayingInternalRef 为 true 时永远运行
+    // velocity 归零只影响视觉效果，不应导致循环停止
+    // 使用 isPlayingInternalRef.current（而非局部变量 isPlaying）确保读取最新状态
+    if (isPlayingInternalRef.current || velocityRef.current > 0.001) {
       reqIdRef.current = requestAnimationFrame(updatePhysics);
     } else {
       reqIdRef.current = null;
