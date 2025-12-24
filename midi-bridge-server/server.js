@@ -63,23 +63,98 @@ function getLocalIPs() {
 }
 
 // Initialize MIDI
-const midiOutput = findAndOpenMidiPort();
+let midiOutput;
+try {
+  midiOutput = findAndOpenMidiPort();
+} catch (e) {
+  console.error('\n✗ MIDI Access Error:', e.message);
+  exitGracefully();
+}
+
 if (!midiOutput) {
-  process.exit(1);
+  exitGracefully();
 }
 
 // Create WebSocket server
-const wss = new WebSocket.Server({ port: WS_PORT });
+let wss;
+try {
+  wss = new WebSocket.Server({ port: WS_PORT });
+  setupWssHandlers();
+} catch (error) {
+  handleServerError(error);
+}
 
-console.log(`\n========================================`);
-console.log(`   MIDI Bridge Server Running`);
-console.log(`========================================`);
-console.log(`\nWebSocket Port: ${WS_PORT}`);
-console.log(`\nConnect from mobile app using one of these addresses:`);
-getLocalIPs().forEach(ip => {
-  console.log(`  ws://${ip}:${WS_PORT}`);
-});
-console.log(`\nWaiting for connections...`);
+function setupWssHandlers() {
+  console.log(`\n========================================`);
+  console.log(`   MIDI Bridge Server Running`);
+  console.log(`========================================`);
+  console.log(`\nWebSocket Port: ${WS_PORT}`);
+  console.log(`\nConnect from mobile app using one of these addresses:`);
+  getLocalIPs().forEach(ip => {
+    console.log(`  ws://${ip}:${WS_PORT}`);
+  });
+  console.log(`\nWaiting for connections...`);
+
+  wss.on('connection', (ws, req) => {
+    clientCount++;
+    const clientIP = req.socket.remoteAddress;
+    console.log(`\n[+] Client connected from ${clientIP} (total: ${clientCount})`);
+
+    ws.on('message', (rawData) => {
+      try {
+        const message = JSON.parse(rawData);
+        
+        if (message.type === 'midi') {
+          sendMidiMessage(message.data);
+        } else if (message.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+        }
+      } catch (e) {
+        console.error('Error processing message:', e.message);
+      }
+    });
+
+    ws.on('close', () => {
+      clientCount--;
+      console.log(`[-] Client disconnected (remaining: ${clientCount})`);
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error.message);
+    });
+
+    // Send welcome message
+    ws.send(JSON.stringify({ 
+      type: 'welcome',
+      message: 'Connected to MIDI Bridge Server'
+    }));
+  });
+
+  wss.on('error', handleServerError);
+  
+  console.log('\nPress Ctrl+C to stop the server.\n');
+}
+
+function handleServerError(error) {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`\n[错误] 端口 ${WS_PORT} 已被占用！`);
+    console.error(`[解决] 请先关闭已经在运行的 Maestro-Bridge 程序，或者重启电脑再试。`);
+  } else {
+    console.error('\n[错误] 服务器发生异常:', error.message);
+  }
+  exitGracefully();
+}
+
+function exitGracefully() {
+  console.log('\n----------------------------------------');
+  console.log('程序将在关闭后退出。');
+  console.log('请按 [Enter] 键结束...');
+  
+  process.stdin.resume();
+  process.stdin.on('data', () => {
+    process.exit(1);
+  });
+}
 
 // Track connected clients
 let clientCount = 0;
@@ -136,56 +211,14 @@ function sendMidiMessage(data) {
 
     default:
       // Raw send for other messages
-      console.log(`Raw MIDI: ${data.map(b => b.toString(16)).join(' ')}`);
+      // console.log(`Raw MIDI: ${data.map(b => b.toString(16)).join(' ')}`);
   }
 }
-
-wss.on('connection', (ws, req) => {
-  clientCount++;
-  const clientIP = req.socket.remoteAddress;
-  console.log(`\n[+] Client connected from ${clientIP} (total: ${clientCount})`);
-
-  ws.on('message', (rawData) => {
-    try {
-      const message = JSON.parse(rawData);
-      
-      if (message.type === 'midi') {
-        sendMidiMessage(message.data);
-      } else if (message.type === 'ping') {
-        ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
-      }
-    } catch (e) {
-      console.error('Error processing message:', e.message);
-    }
-  });
-
-  ws.on('close', () => {
-    clientCount--;
-    console.log(`[-] Client disconnected (remaining: ${clientCount})`);
-  });
-
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error.message);
-  });
-
-  // Send welcome message
-  ws.send(JSON.stringify({ 
-    type: 'welcome',
-    message: 'Connected to MIDI Bridge Server'
-  }));
-});
-
-// Handle server errors
-wss.on('error', (error) => {
-  console.error('Server error:', error.message);
-});
 
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n\nShutting down...');
-  midiOutput.close();
-  wss.close();
+  if (midiOutput) midiOutput.close();
+  if (wss) wss.close();
   process.exit(0);
 });
-
-console.log('\nPress Ctrl+C to stop the server.\n');
