@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { SheetMusic, FlywheelButton } from './components';
-import { useInertiaEngine } from './hooks';
+import { useInertiaEngine, useConductingSensor } from './hooks';
 import { useWifiMidiPlayer } from './hooks/useWifiMidiPlayer';
 import { RAW_TIMING_DATA, parseTimingData } from './config/snow_timing';
 
@@ -16,6 +16,24 @@ function App() {
   // --- Hooks ---
   const physics = useInertiaEngine();
   const midi = useWifiMidiPlayer();
+
+  // --- Conducting Mode (AI Studio Feedback Algo) ---
+  const [isConductingVisualActive, setIsConductingVisualActive] = useState(false);
+  const sensor = useConductingSensor({
+    onBeat: (bpm) => {
+      // 1. 物理冲量
+      physics.triggerImpulse();
+      
+      // 2. 动态调整 BPM
+      if (bpm) {
+        physics.setBpm(bpm);
+      }
+
+      // 3. 视觉反馈
+      setIsConductingVisualActive(true);
+      setTimeout(() => setIsConductingVisualActive(false), 200);
+    }
+  });
 
   // 解析时间映射表
   const parsedTiming = useMemo(() => parseTimingData(RAW_TIMING_DATA), []);
@@ -124,10 +142,34 @@ function App() {
           <div>Velocity: <span className="text-cyan-400">{physics.velocity.toFixed(2)}</span></div>
           <div>Time: <span className="text-cyan-400">{physics.currentSeconds.toFixed(2)}s</span></div>
         </div>
+          
+        {/* Conducting Mode Toggle */}
+        <div className="pt-2 border-t border-white/10">
+          <button
+            onClick={() => sensor.toggle()}
+            className={`w-full px-3 py-2 rounded-lg flex items-center justify-between transition-all ${
+              sensor.isActive 
+                ? 'bg-purple-600/30 border border-purple-500/50 text-purple-300' 
+                : 'bg-zinc-800 border border-white/5 text-gray-500'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className={`w-1.5 h-1.5 rounded-full ${sensor.isActive ? 'bg-purple-400 animate-pulse' : 'bg-gray-600'}`} />
+              <span className="text-[10px] font-bold tracking-wider">CONDUCTING MODE</span>
+            </div>
+            <span className="text-[10px]">{sensor.isActive ? 'ON' : 'OFF'}</span>
+          </button>
+          {sensor.error && <p className="text-[9px] text-red-500 mt-1">{sensor.error}</p>}
+        </div>
       </div>
       
       {/* --- Main Content Area --- */}
       <div className="flex-1 w-full flex flex-col items-center justify-start pt-16 pb-4 relative">
+        {/* Visual Pulse for Conducting Beat */}
+        <div className={`fixed inset-0 pointer-events-none transition-opacity duration-300 ${
+          isConductingVisualActive ? 'bg-purple-500/10 opacity-100' : 'opacity-0'
+        }`} />
+
         {/* Title */}
         <div className="text-center mb-4 z-10">
           <h1 className="text-xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400">

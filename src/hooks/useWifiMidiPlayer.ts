@@ -111,7 +111,7 @@ export function useWifiMidiPlayer() {
         }
       };
 
-      ws.onerror = (event) => {
+      ws.onerror = () => {
         clearTimeout(timeout);
         console.error('[useWifiMidiPlayer] WebSocket error');
         setError('Connection failed');
