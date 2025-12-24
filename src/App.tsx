@@ -198,7 +198,7 @@ function App() {
           velocity={physics.velocity}
           currentSeconds={physics.currentSeconds}
           isPlaying={physics.isPlaying}
-          onTrigger={physics.triggerImpulse}
+          onTrigger={physics.togglePlay}
         />
 
         {/* Score Offset Calibration */}

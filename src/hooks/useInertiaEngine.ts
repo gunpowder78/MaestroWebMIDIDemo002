@@ -24,6 +24,8 @@ interface InertiaEngineState {
 interface InertiaEngineActions {
   /** Trigger an impulse to add momentum */
   triggerImpulse: () => void;
+  /** Toggle play/pause state without adding impulse */
+  togglePlay: () => void;
   /** Stop the engine and reset velocity */
   stop: () => void;
   /** Set the BPM (beats per minute) */
@@ -103,8 +105,11 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
       // Update measure position
       measureRef.current += measuresPerSecond * deltaTime * velocityRef.current;
 
-      // Update current time in seconds
-      currentSecondsRef.current += deltaTime * velocityRef.current;
+      // --- CRITICAL FIX: Playback Speed scaling ---
+      // We scale the progression of time based on how current BPM relates to the default
+      // This ensures that gestural BPM changes actually speed up the MIDI playback.
+      const timeScale = bpmRef.current / BPM_DEFAULT;
+      currentSecondsRef.current += deltaTime * velocityRef.current * timeScale;
     }
 
     // --- Update External State (Throttled to 20fps / 50ms) ---
@@ -158,6 +163,22 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
   }, [startLoop]);
 
   /**
+   * Toggle play/pause - Does NOT add impulse
+   */
+  const togglePlay = useCallback(() => {
+    if (isPlayingRef.current) {
+      isPlayingRef.current = false;
+    } else {
+      isPlayingRef.current = true;
+      // If stopped, give a tiny nudge to start the loop
+      if (velocityRef.current < MIN_SPEED) {
+        velocityRef.current = MIN_SPEED;
+      }
+      startLoop();
+    }
+  }, [startLoop]);
+
+  /**
    * Stop the engine
    */
   const stop = useCallback(() => {
@@ -188,6 +209,7 @@ export function useInertiaEngine(): UseInertiaEngineReturn {
     currentSeconds: state.currentSeconds,
     isPlaying: state.isPlaying,
     triggerImpulse,
+    togglePlay,
     stop,
     setBpm,
   };

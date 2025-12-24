@@ -36,7 +36,7 @@ interface FlywheelButtonProps {
  * - Inner glow that scales and intensifies with velocity
  * - Click-to-scale animation
  */
-export const FlywheelButton: React.FC<FlywheelButtonProps> = ({ velocity, onClick, onTrigger }) => {
+export const FlywheelButton: React.FC<FlywheelButtonProps> = ({ velocity, isPlaying, onTrigger }) => {
   const glowRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
 
@@ -75,21 +75,29 @@ export const FlywheelButton: React.FC<FlywheelButtonProps> = ({ velocity, onClic
 
       {/* Main Button */}
       <button
-        onClick={onTrigger || onClick}
+        onClick={onTrigger}
         className="relative z-10 w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-transform duration-100 cursor-pointer group hover:shadow-purple-500/20"
-        aria-label="Play / Tap Tempo"
+        aria-label={isPlaying ? "Pause" : "Play"}
       >
-        {/* Play Icon */}
-        <svg
-          width={28}
-          height={32}
-          viewBox="0 0 28 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="ml-1 fill-black group-hover:fill-purple-600 transition-colors duration-200"
-        >
-          <path d="M26.5 13.4019C28.5 14.5566 28.5 17.4434 26.5 18.5981L4.75 31.1555C2.75 32.3102 0.250001 30.8668 0.250001 28.5574L0.250002 3.44263C0.250002 1.13323 2.75 -0.31017 4.75 0.84453L26.5 13.4019Z" />
-        </svg>
+        {isPlaying ? (
+          // Pause Icon
+          <div className="flex gap-1.5 justify-center items-center">
+             <div className="w-2.5 h-8 bg-black group-hover:bg-purple-600 transition-colors rounded-sm" />
+             <div className="w-2.5 h-8 bg-black group-hover:bg-purple-600 transition-colors rounded-sm" />
+          </div>
+        ) : (
+          // Play Icon
+          <svg
+            width={28}
+            height={32}
+            viewBox="0 0 28 32"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="ml-1 fill-black group-hover:fill-purple-600 transition-colors duration-200"
+          >
+            <path d="M26.5 13.4019C28.5 14.5566 28.5 17.4434 26.5 18.5981L4.75 31.1555C2.75 32.3102 0.250001 30.8668 0.250001 28.5574L0.250002 3.44263C0.250002 1.13323 2.75 -0.31017 4.75 0.84453L26.5 13.4019Z" />
+          </svg>
+        )}
       </button>
     </div>
   );
