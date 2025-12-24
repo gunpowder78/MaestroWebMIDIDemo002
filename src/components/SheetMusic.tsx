@@ -7,6 +7,10 @@ interface SheetMusicProps {
    */
   currentSeconds: number;
   /**
+   * 是否正在播放
+   */
+  isPlaying?: boolean;
+  /**
    * 解析后的时间-坐标映射表
    */
   timingData: TimingPoint[];

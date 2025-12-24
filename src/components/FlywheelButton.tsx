@@ -8,9 +8,24 @@ interface FlywheelButtonProps {
   velocity: number;
   
   /**
+   * Current playback time in seconds.
+   */
+  currentSeconds?: number;
+  
+  /**
+   * Whether playback is active.
+   */
+  isPlaying?: boolean;
+  
+  /**
+   * Callback triggered when the button is clicked (legacy).
+   */
+  onClick?: () => void;
+  
+  /**
    * Callback triggered when the button is clicked.
    */
-  onClick: () => void;
+  onTrigger?: () => void;
 }
 
 /**
@@ -21,7 +36,7 @@ interface FlywheelButtonProps {
  * - Inner glow that scales and intensifies with velocity
  * - Click-to-scale animation
  */
-export const FlywheelButton: React.FC<FlywheelButtonProps> = ({ velocity, onClick }) => {
+export const FlywheelButton: React.FC<FlywheelButtonProps> = ({ velocity, onClick, onTrigger }) => {
   const glowRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +75,7 @@ export const FlywheelButton: React.FC<FlywheelButtonProps> = ({ velocity, onClic
 
       {/* Main Button */}
       <button
-        onClick={onClick}
+        onClick={onTrigger || onClick}
         className="relative z-10 w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-transform duration-100 cursor-pointer group hover:shadow-purple-500/20"
         aria-label="Play / Tap Tempo"
       >
