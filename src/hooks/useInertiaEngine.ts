@@ -71,6 +71,7 @@ export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
 
     // 2. Playback Logic
     // Even if velocity is 0, we continue playing if isPlayingInternalRef is true
+    // There should be NO logic here that sets isPlayingInternalRef.current = false
     const isPlaying = isPlayingInternalRef.current;
 
     if (isPlaying) {
