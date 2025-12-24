@@ -19,6 +19,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // 注册自定义 Native MIDI 插件
+        registerPlugin(NativeMidiPlugin.class);
         super.onCreate(savedInstanceState);
     }
 
