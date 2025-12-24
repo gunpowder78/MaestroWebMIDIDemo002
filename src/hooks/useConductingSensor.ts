@@ -59,7 +59,11 @@ export function useConductingSensor(options: ConductingSensorOptions = {}) {
     const magnitude = Math.sqrt(x * x + y * y + z * z);
     const now = performance.now();
 
-    if (magnitude > thresholdRef.current) {
+    // 增加阈值逻辑: 只有当加速度显著超过 thresholdRef.current 时才触发
+    // 确保只有明确的指挥动作才会改变 BPM，过滤手抖噪音
+    const intensity = magnitude - thresholdRef.current;
+    
+    if (intensity > 1.0) { // 阈值增量设为 1.0
       if (now - lastBeatTimeRef.current > debounceMsRef.current) {
         
         // --- 激活 Conducting 状态 ---

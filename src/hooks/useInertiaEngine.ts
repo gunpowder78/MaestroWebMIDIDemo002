@@ -4,7 +4,6 @@ import { useRef, useCallback, useEffect, useState } from 'react';
  * Physics & BPM constants
  */
 const FRICTION = 0.98;         // Damping factor per frame
-const MIN_SPEED = 0.01;        // Velocity threshold for playing state
 const BPM_DEFAULT = 80;        // Default beats per minute
 const BEATS_PER_MEASURE = 4;   // Beats per measure (4/4 time assumed)
 
@@ -35,6 +34,7 @@ export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
   const velocityRef = useRef(0);
   const measureRef = useRef(0);
   const currentSecondsRef = useRef(0);
+  const isPlayingInternalRef = useRef(false);
   
   // --- BPM State ---
   const targetBpmRef = useRef(BPM_DEFAULT);
@@ -65,36 +65,25 @@ export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
     lastFrameTimeRef.current = currentTime;
 
     // 1. Velocity Update (Friction)
-    // Always apply friction monitoring
+    // Velocity is now purely for visual feedback (conductor intensity)
     velocityRef.current *= FRICTION;
+    if (velocityRef.current < 0.001) velocityRef.current = 0;
 
-    // 2. Playback State Determination
-    // Logic: If velocity > 0.01, we are "playing".
-    const isActive = velocityRef.current > MIN_SPEED;
+    // 2. Playback Logic
+    // Even if velocity is 0, we continue playing if isPlayingInternalRef is true
+    const isPlaying = isPlayingInternalRef.current;
 
-    if (isActive) {
+    if (isPlaying) {
       // --- BPM Update ---
       // Smoothly transition currentBpm to targetBpm
       currentBpmRef.current = lerp(currentBpmRef.current, targetBpmRef.current, 0.1);
 
       // --- Time Update ---
-      // Formula: time += (currentBpm / 60) * delta
-      // This calculates the number of beats elapsed in this frame
       const beatsDelta = (currentBpmRef.current / 60) * deltaTime;
-
-      // Update Measure (beats / 4)
       measureRef.current += beatsDelta / BEATS_PER_MEASURE;
 
-      // Update Seconds
-      // Use the speed ratio (currentBpm / Default) to scale "musical time"
-      // or simply accumulate real-time if we want a stopwatch.
-      // Based on context of "Project Maestro", this likely drives a cursor that should match the audio.
-      // Scaling time by playback speed is standard.
       const timeScale = currentBpmRef.current / BPM_DEFAULT;
       currentSecondsRef.current += deltaTime * timeScale;
-    } else {
-      // Stopped
-      velocityRef.current = 0;
     }
 
     // --- Update External State (Throttled to ~20fps) ---
@@ -102,16 +91,17 @@ export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
     if (!lastUpdateRef.current || now - lastUpdateRef.current > 50) {
       lastUpdateRef.current = now;
       setState({
-        velocity: Math.abs(velocityRef.current) < 0.001 ? 0 : velocityRef.current,
+        velocity: velocityRef.current,
         measure: measureRef.current,
         currentSeconds: currentSecondsRef.current,
-        isPlaying: isActive,
+        isPlaying: isPlaying,
         currentBpm: Math.round(currentBpmRef.current),
       });
     }
 
     // --- Loop Continuation ---
-    if (isActive || velocityRef.current > 0.001) {
+    // Keep loop running if playing OR if velocity is still decaying
+    if (isPlaying || velocityRef.current > 0.001) {
       reqIdRef.current = requestAnimationFrame(updatePhysics);
     } else {
       reqIdRef.current = null;
@@ -129,10 +119,11 @@ export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
   /**
    * Action: Trigger Impulse
    * Logic: Reset velocity to 1.0 (Activator)
-   * Does NOT increase speed/bpm.
+   * Also ensures playback is active.
    */
   const triggerImpulse = useCallback(() => {
     velocityRef.current = 1.0;
+    isPlayingInternalRef.current = true;
     startLoop();
   }, [startLoop]);
 
@@ -140,12 +131,13 @@ export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
    * Action: Toggle Play/Pause
    */
   const togglePlay = useCallback(() => {
-    // Check if currently playing based on velocity threshold or active loop
-    if (velocityRef.current > MIN_SPEED) {
-      // Stop
+    if (isPlayingInternalRef.current) {
+      // Stop/Pause
+      isPlayingInternalRef.current = false;
       velocityRef.current = 0;
     } else {
       // Start
+      isPlayingInternalRef.current = true;
       velocityRef.current = 1.0;
       startLoop();
     }
@@ -155,10 +147,10 @@ export function useInertiaEngine(): InertiaEngineState & InertiaEngineActions {
    * Action: Stop
    */
   const stop = useCallback(() => {
+    isPlayingInternalRef.current = false;
     velocityRef.current = 0;
     measureRef.current = 0;
     currentSecondsRef.current = 0;
-    // We let the loop run one last time to update state to 0/false then die
   }, []);
 
   /**
